@@ -14,6 +14,7 @@ __pycache__/
 
 # Generated artifacts
 claim_card_prototype.html
+logs/
 *.log
 
 # Claude Code (personal, not for the public repo)

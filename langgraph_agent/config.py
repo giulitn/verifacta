@@ -22,6 +22,7 @@ MODEL_TEMPERATURE = 0
 # --- Paths ----------------------------------------------------------------
 MCP_SERVER_PATH = str(_REPO_ROOT / "mcp_server" / "server.py")
 CLAIM_CARD_OUTPUT = Path(__file__).resolve().parent / "claim_card_prototype.html"
+LOG_FILE = _REPO_ROOT / "logs" / "verifacta.log"
 
 
 def require_anthropic_key() -> str:
