@@ -13,7 +13,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 
-from langchain_anthropic import ChatAnthropic
+from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
@@ -49,7 +49,7 @@ def _coerce_answer(content) -> str:
 
 async def run(user_query: str) -> None:
     """Run the ReAct agent end-to-end and save the Claim Card."""
-    config.require_anthropic_key()
+    config.require_provider_key()
 
     client = MultiServerMCPClient(
         {
@@ -61,9 +61,7 @@ async def run(user_query: str) -> None:
         }
     )
     tools = await client.get_tools()
-    model = ChatAnthropic(
-        model=config.MODEL_NAME, temperature=config.MODEL_TEMPERATURE
-    )
+    model = init_chat_model(config.MODEL_NAME, temperature=config.MODEL_TEMPERATURE)
     agent = create_react_agent(model, tools, prompt=prompts.SYSTEM_PROMPT)
 
     logger.info("Query: %s", user_query)

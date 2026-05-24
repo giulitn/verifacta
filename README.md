@@ -73,7 +73,7 @@ The MCP server uses both transparently. Priority Data360 databases for v1: WDI (
 |---|---|
 | Agent orchestration | LangGraph (Python) |
 | MCP server | Python + MCP Protocol (FastMCP) |
-| LLM | Claude Sonnet 4.6 (swappable) |
+| LLM | Provider-agnostic via `init_chat_model` — Groq (default, free), Anthropic, Google Gemini, OpenAI |
 | Backend (planned) | FastAPI |
 | UI (planned) | Chainlit |
 | Observability (planned) | Langfuse (tracing, eval, prompt versioning) |
@@ -83,7 +83,7 @@ The MCP server uses both transparently. Priority Data360 databases for v1: WDI (
 
 ## Quick start
 
-Requires Python 3.11+ and an `ANTHROPIC_API_KEY` ([get one here](https://console.anthropic.com/settings/keys)).
+Requires Python 3.11+ and an API key from any supported LLM provider. Default is **Groq** (free, no credit card — get a key at [console.groq.com/keys](https://console.groq.com/keys)). Anthropic, Google Gemini and OpenAI also work — see `.env.example`.
 
 ```bash
 # 1. Activate the shared venv
@@ -94,7 +94,7 @@ pip install -e ./mcp_server -e ./langgraph_agent
 
 # 3. Configure your API key
 cp .env.example .env
-# edit .env and paste your ANTHROPIC_API_KEY
+# edit .env and paste your GROQ_API_KEY (or switch VERIFACTA_MODEL to another provider)
 
 # 4. Run a query end-to-end (the agent spawns the MCP server automatically)
 python langgraph_agent/agent.py "What is the GDP per capita of Argentina from 2015 to 2022?"

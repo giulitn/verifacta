@@ -14,10 +14,22 @@ from dotenv import load_dotenv
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(_REPO_ROOT / ".env", override=False)
 
-# --- Anthropic / model ----------------------------------------------------
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-MODEL_NAME = os.environ.get("VERIFACTA_MODEL", "claude-sonnet-4-6")
+# --- Model ----------------------------------------------------------------
+# Format: "<provider>:<model_id>" (consumed by langchain.chat_models.init_chat_model).
+# Default is Groq's free, fast, tool-calling-capable Llama. Override with
+# VERIFACTA_MODEL to switch providers — see .env.example for examples.
+MODEL_NAME = os.environ.get("VERIFACTA_MODEL", "groq:llama-3.3-70b-versatile")
 MODEL_TEMPERATURE = 0
+
+# Env var each provider expects for its API key. Used by require_provider_key()
+# to fail fast with a useful message instead of a deep stack trace.
+_PROVIDER_KEY_ENV = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "google_genai": "GOOGLE_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "mistralai": "MISTRAL_API_KEY",
+}
 
 # --- Paths ----------------------------------------------------------------
 MCP_SERVER_PATH = str(_REPO_ROOT / "mcp_server" / "server.py")
@@ -25,11 +37,15 @@ CLAIM_CARD_OUTPUT = Path(__file__).resolve().parent / "claim_card_prototype.html
 LOG_FILE = _REPO_ROOT / "logs" / "verifacta.log"
 
 
-def require_anthropic_key() -> str:
-    """Return the Anthropic API key or raise a clear error."""
-    if not ANTHROPIC_API_KEY:
+def require_provider_key() -> None:
+    """Verify the API key env var for the configured model's provider is set."""
+    if ":" not in MODEL_NAME:
+        return  # Unknown format — let init_chat_model raise its own error.
+    provider = MODEL_NAME.split(":", 1)[0]
+    env_var = _PROVIDER_KEY_ENV.get(provider)
+    if env_var and not os.environ.get(env_var):
         raise RuntimeError(
-            "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and fill it in, "
-            "or export the variable in your shell."
+            f"{env_var} is not set (required for VERIFACTA_MODEL={MODEL_NAME!r}). "
+            "Copy .env.example to .env and fill it in, or export the variable in "
+            "your shell."
         )
-    return ANTHROPIC_API_KEY
