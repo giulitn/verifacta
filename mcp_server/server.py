@@ -16,22 +16,63 @@ import validators
 
 mcp = FastMCP("verifacta-mcp")
 
+_SEARCH_RESULT_LIMIT = 10
+
+
+def _summarize_search_hit(hit: dict) -> dict:
+    """Project a raw Azure Search hit down to the fields the agent actually needs.
+
+    The raw payload averages 16 KB per hit (60+ fields including methodology,
+    definition_long, derivation, etc.). For indicator selection the agent only
+    needs identity, naming, and a one-line description; rich provenance lives
+    in get_metadata.
+    """
+    sd = hit.get("series_description") or {}
+    md = hit.get("metadata_information") or {}
+    raw_id = hit.get("id") or ""
+    idno = sd.get("idno") or (
+        raw_id.removeprefix("META_") if raw_id.startswith("META_") else None
+    )
+    return {
+        "id": hit.get("id"),
+        "idno": idno,
+        "database_id": sd.get("database_id"),
+        "database_name": sd.get("database_name"),
+        "name": sd.get("name"),
+        "title": md.get("title"),
+        "definition_short": sd.get("definition_short"),
+        "periodicity": sd.get("periodicity"),
+    }
+
 
 @mcp.tool()
 async def search_indicators(query: str) -> dict:
     """Search World Bank Data360 indicators by keyword.
 
+    Returns a slim catalogue listing (top 10 hits, ~8 fields each) so the
+    response fits in any model's context window. For the full provenance
+    document of a chosen indicator (methodology, producers, version, etc.),
+    use `get_metadata` afterwards.
+
     Args:
         query: Free-text keyword to search for relevant indicators.
 
     Returns:
-        Search results from Data360. Each hit's `series_description` contains
-        the `database_id` and `idno` (the indicator code) that get_data needs.
+        `{"results": [{id, idno, database_id, database_name, name, title,
+        definition_short, periodicity}, ...], "total_matches": int,
+        "results_returned": int}`. Use `idno` as the indicator code for
+        `get_data` and `database_id` as its database.
     """
     clean_query = validators.require_query(query)
-    return await http_client.post_json(
+    raw = await http_client.post_json(
         config.DATA360_SEARCH_URL, json={"search": clean_query}
     )
+    hits = raw.get("value", []) or []
+    return {
+        "results": [_summarize_search_hit(h) for h in hits[:_SEARCH_RESULT_LIMIT]],
+        "total_matches": raw.get("@odata.count") or len(hits),
+        "results_returned": min(len(hits), _SEARCH_RESULT_LIMIT),
+    }
 
 
 @mcp.tool()
