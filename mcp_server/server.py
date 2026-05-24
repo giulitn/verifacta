@@ -75,6 +75,33 @@ async def search_indicators(query: str) -> dict:
     }
 
 
+_DATA_DIMENSION_FIELDS = (
+    "SEX", "AGE", "URBANISATION", "COMP_BREAKDOWN_1", "COMP_BREAKDOWN_2",
+    "COMP_BREAKDOWN_3",
+)
+_DATA_AGGREGATE_PLACEHOLDERS = {"_T", "_Z", None, ""}
+
+
+def _summarize_data_point(record: dict) -> dict:
+    """Project a Data360 record to {date, value, unit, ...non-aggregate dims}.
+
+    Drops fields that are constant for a query (DATABASE_ID, INDICATOR, REF_AREA),
+    aggregate placeholders (_T / _Z meaning "total"), and metadata noise
+    (TIME_FORMAT, UNIT_MULT, OBS_CONF, AGG_METHOD, etc.). For non-disaggregated
+    queries this turns ~500-char records into ~60-char ones.
+    """
+    point = {
+        "date": record.get("TIME_PERIOD"),
+        "value": record.get("OBS_VALUE"),
+        "unit": record.get("UNIT_MEASURE"),
+    }
+    for dim in _DATA_DIMENSION_FIELDS:
+        value = record.get(dim)
+        if value not in _DATA_AGGREGATE_PLACEHOLDERS:
+            point[dim.lower()] = value
+    return point
+
+
 @mcp.tool()
 async def get_data(
     database_id: str,
@@ -85,25 +112,32 @@ async def get_data(
 ) -> dict:
     """Retrieve a time series from World Bank Data360.
 
+    Returns a slim, projected view: only `{date, value, unit}` per point,
+    plus any disaggregation dimensions (sex, age, etc.) that are NOT the
+    "total" placeholder. The full raw record (with FREQ, UNIT_MULT,
+    OBS_CONF, ~20 other fields) is intentionally dropped to keep the
+    response under model context limits.
+
     Args:
         database_id: Data360 database identifier (e.g. 'WB_WDI', 'WB_SSGD').
-                     Required by the API. Find it in a search hit's
-                     `series_description.database_id` field.
+                     Required by the API. Find it as `database_id` in a
+                     search_indicators result.
         indicator:   Data360 indicator code (e.g. 'WB_SSGD_GDP_CAPITA_PPP').
-                     Find it in a search hit's `series_description.idno`
-                     field (or strip the 'META_' prefix from the hit `id`).
+                     Find it as `idno` in a search_indicators result.
         country:     ISO 3166-1 alpha-3 country code (e.g. 'ARG').
         year_start:  First year of the range (inclusive, >= 1960).
         year_end:    Last year of the range (inclusive, <= 2100).
 
     Returns:
-        JSON response from the Data360 data API.
+        `{"indicator": str, "database_id": str, "country": str,
+        "year_range": "YYYY-YYYY", "points": [{date, value, unit, ...}],
+        "count": int}`.
     """
     clean_database = validators.require_non_empty_str(database_id, "database_id")
     clean_indicator = validators.require_non_empty_str(indicator, "indicator")
     clean_country = validators.require_non_empty_str(country, "country")
     start, end = validators.require_year_range(year_start, year_end)
-    return await http_client.get_json(
+    raw = await http_client.get_json(
         config.DATA360_DATA_URL,
         params={
             "DATABASE_ID": clean_database,
@@ -113,6 +147,17 @@ async def get_data(
             "timePeriodTo": end,
         },
     )
+    records = raw.get("value", []) or []
+    points = [_summarize_data_point(r) for r in records]
+    points.sort(key=lambda p: (p.get("date") or "", str(p.get("value") or "")))
+    return {
+        "indicator": clean_indicator,
+        "database_id": clean_database,
+        "country": clean_country,
+        "year_range": f"{start}-{end}",
+        "points": points,
+        "count": len(points),
+    }
 
 
 @mcp.tool()
