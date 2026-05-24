@@ -1,0 +1,21 @@
+[project]
+name = "verifacta-agent"
+version = "0.1.0"
+description = "Verifacta LangGraph ReAct Agent"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=0.3.0",
+    "langgraph>=0.2.0",
+    "langchain-mcp-adapters>=0.1.3",
+    "langchain-anthropic>=0.3.0",
+    "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Scripts are invoked directly (`python langgraph_agent/agent.py`); we don't need
+# to ship the .py files as an importable package. Install dependencies only.
+[tool.hatch.build.targets.wheel]
+bypass-selection = true

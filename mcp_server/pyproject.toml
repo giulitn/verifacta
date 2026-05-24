@@ -1,0 +1,19 @@
+[project]
+name = "verifacta-mcp-server"
+version = "0.1.0"
+description = "Verifacta MCP Server - World Bank Data360 tools"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+    "mcp[cli]>=1.2.0",
+    "httpx>=0.27.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Scripts are invoked directly (`python mcp_server/server.py`); we don't need to
+# ship the .py files as an importable package. Install dependencies only.
+[tool.hatch.build.targets.wheel]
+bypass-selection = true

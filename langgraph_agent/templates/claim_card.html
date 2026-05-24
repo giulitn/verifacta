@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verifacta Claim Card</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .card {
+      background: #ffffff;
+      border: 2px solid #1a1a2e;
+      border-radius: 8px;
+      padding: 32px;
+      max-width: 780px;
+      width: 100%;
+      box-shadow: 4px 4px 0 #1a1a2e;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 1.3rem;
+      color: #1a1a2e;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .subtitle {
+      font-size: 0.75rem;
+      color: #888;
+      margin-bottom: 28px;
+    }
+    .field { margin-bottom: 20px; }
+    .label {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .value {
+      font-size: 0.95rem;
+      color: #1a1a2e;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .hash {
+      font-size: 0.78rem;
+      color: #2e7d32;
+      word-break: break-all;
+    }
+    .divider {
+      border: none;
+      border-top: 1px dashed #ccc;
+      margin: 24px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Verifacta</h1>
+    <div class="subtitle">DATA 360 Global Challenge · Claim Card Prototype</div>
+
+    <div class="field">
+      <div class="label">Verified Answer</div>
+      <div class="value">$answer</div>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="field">
+      <div class="label">Indicator ID</div>
+      <div class="value">$indicator</div>
+    </div>
+
+    <div class="field">
+      <div class="label">Timestamp (UTC)</div>
+      <div class="value">$timestamp</div>
+    </div>
+
+    <div class="field">
+      <div class="label">SHA-256 Integrity Hash</div>
+      <div class="value hash">$sha256</div>
+    </div>
+  </div>
+</body>
+</html>

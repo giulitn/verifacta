@@ -1,0 +1,27 @@
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated artifacts
+claim_card_prototype.html
+*.log
+
+# Claude Code (personal, not for the public repo)
+.claude/
+CLAUDE.md
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
