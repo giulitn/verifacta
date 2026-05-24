@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Verifacta Claim Card</title>
+  <title>Verifacta Refusal Card</title>
   <style>
     body {
       font-family: 'Courier New', monospace;
@@ -14,12 +14,12 @@
     }
     .card {
       background: #ffffff;
-      border: 2px solid #1a1a2e;
+      border: 2px solid #c62828;
       border-radius: 8px;
       padding: 32px;
       max-width: 780px;
       width: 100%;
-      box-shadow: 4px 4px 0 #1a1a2e;
+      box-shadow: 4px 4px 0 #c62828;
     }
     h1 {
       margin: 0 0 4px;
@@ -35,7 +35,7 @@
     }
     .badge {
       display: inline-block;
-      background: #2e7d32;
+      background: #c62828;
       color: #fff;
       font-size: 0.7rem;
       font-weight: bold;
@@ -70,24 +70,14 @@
       border-top: 1px dashed #ccc;
       margin: 24px 0;
     }
-    .indicator-row {
-      font-size: 0.85rem;
-      padding: 6px 8px;
-      background: #f7f7fb;
-      border-left: 3px solid #2e7d32;
-      margin-bottom: 4px;
-      word-break: break-all;
-    }
-    .indicator-database {
-      color: #555;
-    }
-    .indicator-separator {
-      color: #999;
-      margin: 0 8px;
-    }
-    .indicator-code {
-      color: #1a1a2e;
-      font-weight: bold;
+    .note {
+      font-size: 0.78rem;
+      color: #888;
+      font-style: italic;
+      background: #fff5f5;
+      padding: 10px 12px;
+      border-left: 3px solid #c62828;
+      margin-bottom: 20px;
     }
   </style>
 </head>
@@ -95,19 +85,19 @@
   <div class="card">
     <h1>Verifacta</h1>
     <div class="subtitle">DATA 360 Global Challenge · Claim Card Prototype</div>
-    <div class="badge">✓ Verified</div>
+    <div class="badge">⚠ No verified data</div>
+
+    <div class="note">
+      The query could not be answered with verified statistics from the
+      World Bank Data360 catalogue. No data tools returned a citable value.
+    </div>
 
     <div class="field">
-      <div class="label">Verified Answer</div>
+      <div class="label">Agent Response</div>
       <div class="value">$answer</div>
     </div>
 
     <hr class="divider" />
-
-    <div class="field">
-      <div class="label">Sources consulted ($indicator_count)</div>
-      $indicator_rows
-    </div>
 
     <div class="field">
       <div class="label">Timestamp (UTC)</div>

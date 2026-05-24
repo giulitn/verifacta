@@ -26,13 +26,43 @@ import prompts
 logger = logging.getLogger("verifacta")
 
 
-def _extract_indicator(messages: list) -> str:
-    """Return the indicator used in the first `get_data` tool call, or 'N/A'."""
+# Tools whose calls actually fetched data values (and therefore deserve a
+# citation on the Claim Card). get_metadata is excluded on purpose — it
+# enriches an existing citation, it doesn't introduce a new data source.
+_V2_DATABASE_LABEL = "WB Indicators v2 (WDI)"
+
+
+def _collect_indicators(messages: list) -> list[dict]:
+    """Walk the agent transcript and return all distinct data sources cited.
+
+    Returns a list of `{"database": str, "indicator": str}` sorted for stable
+    hashing. Each entry corresponds to a unique (database, indicator) pair
+    consulted across get_data and get_timeseries calls.
+    """
+    seen: set[tuple[str, str]] = set()
+    citations: list[dict] = []
     for msg in messages:
         for tool_call in getattr(msg, "tool_calls", []):
-            if tool_call.get("name") == "get_data":
-                return tool_call.get("args", {}).get("indicator", "N/A")
-    return "N/A"
+            name = tool_call.get("name")
+            args = tool_call.get("args") or {}
+            indicator = args.get("indicator")
+            if not indicator:
+                continue
+            if name == "get_data":
+                database = args.get("database_id")
+            elif name == "get_timeseries":
+                database = _V2_DATABASE_LABEL
+            else:
+                continue
+            if not database:
+                continue
+            key = (database, indicator)
+            if key in seen:
+                continue
+            seen.add(key)
+            citations.append({"database": database, "indicator": indicator})
+    citations.sort(key=lambda c: (c["database"], c["indicator"]))
+    return citations
 
 
 def _coerce_answer(content) -> str:
@@ -69,19 +99,24 @@ async def run(user_query: str) -> None:
 
     messages = result["messages"]
     answer = _coerce_answer(messages[-1].content)
-    indicator = _extract_indicator(messages)
+    indicators = _collect_indicators(messages)
     timestamp = datetime.now(timezone.utc).isoformat()
-    sha256 = claim_card.compute_hash(answer, indicator, timestamp)
+    sha256 = claim_card.compute_hash(answer, indicators, timestamp)
 
     logger.info("=" * 60)
     logger.info("Answer: %s", answer)
     logger.info("=" * 60)
-    logger.info("Indicator ID : %s", indicator)
+    if indicators:
+        logger.info("Indicators   : %d cited", len(indicators))
+        for c in indicators:
+            logger.info("  - %s :: %s", c["database"], c["indicator"])
+    else:
+        logger.info("Indicators   : (none — query refused, no tool calls made)")
     logger.info("Timestamp    : %s", timestamp)
     logger.info("SHA-256      : %s", sha256)
 
     config.CLAIM_CARD_OUTPUT.write_text(
-        claim_card.render(answer, indicator, timestamp, sha256),
+        claim_card.render(answer, indicators, timestamp, sha256),
         encoding="utf-8",
     )
     logger.info("Claim card saved -> %s", config.CLAIM_CARD_OUTPUT)
