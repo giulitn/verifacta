@@ -114,7 +114,20 @@ async def _event_source(query: str) -> AsyncIterator[bytes]:
         yield _format_sse("done", {})
     except Exception as exc:
         logger.exception("Agent run failed")
-        yield _format_sse("error", {"message": str(exc)})
+        yield _format_sse("error", {"message": _describe_exception(exc)})
+
+
+def _describe_exception(exc: BaseException) -> str:
+    """Return a one-line, debuggable description of an exception.
+
+    Unwraps ExceptionGroup (raised by asyncio.TaskGroup) so the surface
+    error in the UI names the actual underlying cause instead of the
+    opaque "unhandled errors in a TaskGroup" wrapper.
+    """
+    if isinstance(exc, BaseExceptionGroup):
+        inner = exc.exceptions[0] if exc.exceptions else exc
+        return f"{type(inner).__name__}: {inner}"
+    return f"{type(exc).__name__}: {exc}"
 
 
 def _format_sse(event_type: str, data: dict) -> bytes:
