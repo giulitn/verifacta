@@ -46,6 +46,7 @@ The frontend should display `Reachable: yes` and the JSON body of `/health`.
    - `VERIFACTA_MODEL=anthropic:claude-sonnet-4-6` (or other)
    - `FRONTEND_ORIGIN` — the Vercel URL once you have it (you'll come back to set this)
    - `RATE_LIMIT` — optional, defaults to `30/hour`. Uses [slowapi syntax](https://slowapi.readthedocs.io/en/latest/): `"<count>/<period>"` or a semicolon-joined list like `"30/hour;5/minute"`. Per client IP (X-Forwarded-For aware).
+   - `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` — optional; enables full trace observability. See "Observability" section below.
 6. Healthcheck is `/health` (already configured in `railway.json`).
 
 ## Production: Vercel (frontend)
@@ -71,6 +72,33 @@ curl -u jury:your-pass https://verifacta.vercel.app
 ```
 
 Visit the Vercel URL in a browser → it should prompt for the jury credentials, then render the connectivity-check page.
+
+## Observability (Langfuse)
+
+Every agent run becomes a Langfuse trace with the user's query as the
+trace name, the SHA-256 hash + cited indicators as metadata, and tags
+for provider (`groq`/`anthropic`/…) and outcome (`verified`/`refused`).
+The LangChain integration captures every node automatically — LLM
+calls with token counts and cost, each MCP tool call with args and
+output, intermediate state.
+
+Setup:
+
+1. Sign up at [cloud.langfuse.com](https://cloud.langfuse.com) (free
+   tier: 50k observations/month — plenty for the demo).
+2. Create a project. Open **Settings → API Keys** and create a key
+   pair. Copy both values immediately — Langfuse only shows the
+   secret key once.
+3. Add to Railway **Variables**:
+   - `LANGFUSE_PUBLIC_KEY=pk-lf-…`
+   - `LANGFUSE_SECRET_KEY=sk-lf-…`
+   - `LANGFUSE_HOST=https://cloud.langfuse.com` (optional, default)
+4. Railway redeploys. The next `/ask` call sends a trace. Refresh
+   the Langfuse **Traces** view to see it.
+
+For local dev, paste the same keys into `.env` and run a CLI query.
+Leaving the keys unset disables tracing cleanly — no warnings, no
+crashes.
 
 ## Troubleshooting
 

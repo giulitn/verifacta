@@ -29,6 +29,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 import claim_card
 import config
 import logging_setup
+import observability
 import prompts
 
 logger = logging.getLogger("verifacta")
@@ -181,10 +182,28 @@ async def run_agent_stream(user_query: str) -> AsyncIterator[AgentEvent]:
 
     logger.info("Query: %s", user_query)
 
+    # Pack everything Langfuse needs into the RunnableConfig: the
+    # callback handler picks up trace name + initial metadata + tags
+    # from here. Final-state metadata (sha256, indicators_cited) is
+    # added below via observability.update_current_trace.
+    handler = observability.get_callback_handler()
+    run_config: dict = {
+        "run_name": _short_trace_name(user_query),
+        "metadata": {
+            "verifacta_query": user_query,
+            "verifacta_model": config.MODEL_NAME,
+            "verifacta_transport": config.MCP_TRANSPORT,
+        },
+        "tags": ["verifacta", _provider_tag(config.MODEL_NAME)],
+    }
+    if handler is not None:
+        run_config["callbacks"] = [handler]
+
     messages: list = []
     emitted_count = 0
     async for state in agent.astream(
         {"messages": [HumanMessage(content=user_query)]},
+        config=run_config,
         stream_mode="values",
     ):
         messages = state.get("messages", [])
@@ -194,6 +213,10 @@ async def run_agent_stream(user_query: str) -> AsyncIterator[AgentEvent]:
         emitted_count = len(messages)
 
     if not messages:
+        observability.update_current_trace(
+            tags=["verifacta", _provider_tag(config.MODEL_NAME), "no_messages"],
+        )
+        observability.flush()
         yield {
             "type": "error",
             "data": {"message": "Agent produced no messages"},
@@ -205,6 +228,23 @@ async def run_agent_stream(user_query: str) -> AsyncIterator[AgentEvent]:
     timestamp = datetime.now(timezone.utc).isoformat()
     sha256 = claim_card.compute_hash(answer, indicators, timestamp)
 
+    refused = not indicators
+    observability.update_current_trace(
+        metadata={
+            "claim_card_sha256": sha256,
+            "indicators_cited_count": len(indicators),
+            "indicators_cited": indicators,
+            "claim_card_timestamp": timestamp,
+        },
+        tags=[
+            "verifacta",
+            _provider_tag(config.MODEL_NAME),
+            "refused" if refused else "verified",
+        ],
+        output={"answer": answer, "indicators": indicators, "sha256": sha256},
+    )
+    observability.flush()
+
     yield {"type": "final_answer", "data": {"text": answer}}
     yield {
         "type": "claim_card",
@@ -215,6 +255,19 @@ async def run_agent_stream(user_query: str) -> AsyncIterator[AgentEvent]:
             "sha256": sha256,
         },
     }
+
+
+def _short_trace_name(query: str, limit: int = 80) -> str:
+    """First line, truncated — used as the human-readable Langfuse trace name."""
+    first_line = query.strip().splitlines()[0] if query.strip() else "(empty query)"
+    if len(first_line) <= limit:
+        return first_line
+    return first_line[: limit - 1] + "…"
+
+
+def _provider_tag(model_name: str) -> str:
+    """Extract the provider from VERIFACTA_MODEL (e.g. groq:llama → 'groq')."""
+    return model_name.split(":", 1)[0] if ":" in model_name else "unknown"
 
 
 async def run_cli(user_query: str) -> None:
