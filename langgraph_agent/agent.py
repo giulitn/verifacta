@@ -16,6 +16,7 @@ CLI usage:
 
 import asyncio
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from typing import AsyncIterator, TypedDict
@@ -55,7 +56,14 @@ _V2_DATABASE_LABEL = "WB Indicators v2 (WDI)"
 
 
 def _build_mcp_client() -> MultiServerMCPClient:
-    """Construct the MCP client for the configured transport."""
+    """Construct the MCP client for the configured transport.
+
+    For stdio, we explicitly forward the parent's environment to the
+    subprocess. The MCP Python SDK otherwise applies a curated minimal
+    allowlist (PATH, HOME, …) so any custom config the MCP needs at
+    startup — DATA360_API_BASE_URL, MCP_ENV, etc. — would be missing
+    even when the Dockerfile sets it on the container.
+    """
     if config.MCP_TRANSPORT == "stdio":
         return MultiServerMCPClient(
             {
@@ -67,6 +75,7 @@ def _build_mcp_client() -> MultiServerMCPClient:
                         "--transport",
                         "stdio",
                     ],
+                    "env": dict(os.environ),
                     "transport": "stdio",
                 }
             }
