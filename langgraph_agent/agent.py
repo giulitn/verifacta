@@ -56,6 +56,23 @@ class AgentEvent(TypedDict):
 _V2_DATABASE_LABEL = "WB Indicators v2 (WDI)"
 
 
+def _build_model():
+    """Construct the chat model for the configured provider.
+
+    init_chat_model handles most providers via its built-in registry,
+    but Cerebras Cloud isn't in the list yet (only groq, openai,
+    openrouter, anthropic, etc. — see langchain.chat_models.base).
+    We special-case the cerebras: prefix and instantiate ChatCerebras
+    directly; everything else stays on the boring init_chat_model path.
+    """
+    if config.MODEL_NAME.startswith("cerebras:"):
+        from langchain_cerebras import ChatCerebras
+
+        model_id = config.MODEL_NAME.split(":", 1)[1]
+        return ChatCerebras(model=model_id, temperature=config.MODEL_TEMPERATURE)
+    return init_chat_model(config.MODEL_NAME, temperature=config.MODEL_TEMPERATURE)
+
+
 def _build_mcp_client() -> MultiServerMCPClient:
     """Construct the MCP client for the configured transport.
 
@@ -177,7 +194,7 @@ async def run_agent_stream(user_query: str) -> AsyncIterator[AgentEvent]:
 
     client = _build_mcp_client()
     tools = await client.get_tools()
-    model = init_chat_model(config.MODEL_NAME, temperature=config.MODEL_TEMPERATURE)
+    model = _build_model()
     agent = create_agent(model, tools, system_prompt=prompts.SYSTEM_PROMPT)
 
     logger.info("Query: %s", user_query)
