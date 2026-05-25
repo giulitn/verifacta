@@ -31,12 +31,29 @@ logger = logging.getLogger("verifacta.api")
 
 app = FastAPI(title="Verifacta API", version="0.2.0")
 
-# CORS — allow the Vercel frontend (set via env) plus localhost dev.
-_frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip()
-_allowed_origins = [o for o in [_frontend_origin, "http://localhost:3000"] if o]
+
+def _parse_origins(raw: str) -> list[str]:
+    """Split FRONTEND_ORIGIN on commas, trim whitespace, drop trailing slash."""
+    return [piece.strip().rstrip("/") for piece in raw.split(",") if piece.strip()]
+
+
+# CORS — Vercel frontend (set via env) plus localhost dev. Supports a
+# comma-separated list of origins, and an optional regex for preview
+# deploys (e.g. https://.*\.vercel\.app).
+_frontend_origins = _parse_origins(os.getenv("FRONTEND_ORIGIN", ""))
+_allowed_origins = _frontend_origins + ["http://localhost:3000"]
+_frontend_origin_regex = os.getenv("FRONTEND_ORIGIN_REGEX", "").strip() or None
+
+logger.info(
+    "CORS allow_origins=%s allow_origin_regex=%s",
+    _allowed_origins,
+    _frontend_origin_regex,
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins or ["*"],
+    allow_origins=_allowed_origins,
+    allow_origin_regex=_frontend_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
