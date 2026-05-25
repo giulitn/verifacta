@@ -25,9 +25,13 @@ RUN git clone --depth 1 --branch dev https://github.com/worldbank/data360-mcp.gi
     && pip install -e /opt/data360-mcp
 
 # Tell the agent to spawn the MCP as a stdio subprocess instead of the
-# default HTTP transport.
+# default HTTP transport. DATA360_API_BASE_URL is required by the MCP's
+# pydantic-settings config; MCP_ENV=local skips the Azure App Insights
+# log handler the MCP otherwise tries to wire up at startup.
 ENV DATA360_MCP_TRANSPORT=stdio \
-    DATA360_MCP_SERVER_PY=/opt/data360-mcp/src/data360/server.py
+    DATA360_MCP_SERVER_PY=/opt/data360-mcp/src/data360/server.py \
+    DATA360_API_BASE_URL=https://data360api.worldbank.org \
+    MCP_ENV=local
 
 # 3) Application code last so dev edits don't invalidate the dep layers.
 COPY langgraph_agent/ ./langgraph_agent/
