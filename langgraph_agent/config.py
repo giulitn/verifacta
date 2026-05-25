@@ -32,11 +32,26 @@ _PROVIDER_KEY_ENV = {
 }
 
 # --- Data360 MCP server ---------------------------------------------------
-# Verifacta consumes the official World Bank Data360 MCP server over HTTP.
-# See https://github.com/worldbank/data360-mcp for the server itself.
-# Default assumes you ran `uv run poe serve --port 8000 --transport http`
-# in a local clone of that repo.
+# Two transports are supported (see langgraph_agent/agent.py:_build_mcp_client):
+#   - "streamable_http" (default): MCP runs as a separate process and the
+#     agent connects to MCP_SERVER_URL. This matches the local dev workflow
+#     documented in CLAUDE.md.
+#   - "stdio": MCP runs as a subprocess of the agent — single deployable in
+#     production. The Dockerfile sets DATA360_MCP_TRANSPORT=stdio so the
+#     Railway container gets this path without any client-side changes.
+MCP_TRANSPORT = os.environ.get("DATA360_MCP_TRANSPORT", "streamable_http")
+
+# HTTP transport: where to reach the MCP server.
 MCP_SERVER_URL = os.environ.get("DATA360_MCP_URL", "http://localhost:8000/mcp")
+
+# stdio transport: how to launch the MCP. `fastmcp run <server.py>` is the
+# documented entry point of data360-mcp. The default server path matches
+# the location inside the container (see Dockerfile); override locally if
+# you want to spawn it from a different clone.
+MCP_STDIO_COMMAND = os.environ.get("DATA360_MCP_COMMAND", "fastmcp")
+MCP_STDIO_SERVER_PY = os.environ.get(
+    "DATA360_MCP_SERVER_PY", "/opt/data360-mcp/src/data360/server.py"
+)
 
 # --- Paths ----------------------------------------------------------------
 CLAIM_CARD_OUTPUT = Path(__file__).resolve().parent / "claim_card_prototype.html"
