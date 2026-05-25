@@ -29,6 +29,7 @@ _PROVIDER_KEY_ENV = {
     "google_genai": "GOOGLE_API_KEY",
     "openai": "OPENAI_API_KEY",
     "mistralai": "MISTRAL_API_KEY",
+    "cerebras": "CEREBRAS_API_KEY",
 }
 
 # --- Data360 MCP server ---------------------------------------------------
