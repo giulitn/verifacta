@@ -1,64 +1,45 @@
-type BackendStatus = {
-  reachable: boolean;
-  origin: string | null;
-  body: string | null;
-};
+import Link from "next/link";
 
-async function checkBackend(): Promise<BackendStatus> {
-  const origin = process.env.NEXT_PUBLIC_API_URL?.trim() || null;
-  if (!origin) return { reachable: false, origin: null, body: null };
-  try {
-    const res = await fetch(`${origin}/health`, { cache: "no-store" });
-    const body = await res.text();
-    return { reachable: res.ok, origin, body };
-  } catch {
-    return { reachable: false, origin, body: null };
-  }
-}
-
-export default async function Home() {
-  const backend = await checkBackend();
+export default function Home() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-8">
-      <div className="max-w-xl w-full space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">Verifacta</h1>
-          <p className="text-sm text-neutral-600">
-            Phase 0 — connectivity check
+    <main className="min-h-screen bg-neutral-50 flex items-center justify-center px-6 py-16">
+      <div className="max-w-2xl space-y-8">
+        <header className="space-y-2">
+          <p className="text-xs uppercase tracking-[2px] text-neutral-500">
+            DATA 360 Global Challenge 2026
+          </p>
+          <h1 className="text-4xl font-semibold tracking-tight">Verifacta</h1>
+          <p className="text-lg text-neutral-600">
+            A verification layer for journalists. Every answer is grounded in
+            the official World Bank Data360 catalogue and ships with a signed
+            Claim Card — sources cited, integrity hash included.
           </p>
         </header>
 
-        <section className="rounded-lg border border-neutral-200 p-4 space-y-3">
-          <div className="flex justify-between items-baseline text-sm">
-            <span className="text-neutral-500">Backend URL</span>
-            <span className="font-mono text-xs">
-              {backend.origin ?? "(unset)"}
-            </span>
-          </div>
-          <div className="flex justify-between items-baseline text-sm">
-            <span className="text-neutral-500">Reachable</span>
-            <span
-              className={
-                backend.reachable
-                  ? "text-green-700 font-medium"
-                  : "text-red-700 font-medium"
-              }
-            >
-              {backend.reachable ? "yes" : "no"}
-            </span>
-          </div>
-          {backend.body && (
-            <pre className="bg-neutral-50 rounded p-2 text-xs overflow-auto">
-              {backend.body}
-            </pre>
-          )}
+        <section className="space-y-3">
+          <p className="text-sm text-neutral-700">
+            We do not paraphrase, summarize, or generate. When the data isn't
+            in Data360, Verifacta refuses on the record — and shows you the
+            closest indicator you could ask about instead.
+          </p>
         </section>
 
-        <footer className="text-xs text-neutral-500">
-          Set <code className="font-mono">NEXT_PUBLIC_API_URL</code> in{" "}
-          <code className="font-mono">web/.env.local</code> (local) or in
-          Vercel project settings (prod).
-        </footer>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/chat"
+            className="rounded-md bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-800"
+          >
+            Open the verifier →
+          </Link>
+          <a
+            href="https://github.com/giulitn/verifacta"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-md border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-700 hover:bg-white"
+          >
+            View on GitHub
+          </a>
+        </div>
       </div>
     </main>
   );
