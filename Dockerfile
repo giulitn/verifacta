@@ -21,7 +21,16 @@ RUN pip install --upgrade pip && pip install -e ./langgraph_agent
 # 2) Data360 MCP server, bundled in-container and spawned over stdio by the
 #    agent (no separate Railway service). Pinned to `dev`, the upstream
 #    default branch.
+#
+#    fastmcp is pinned to 2.14.1 BEFORE the data360-mcp install: the MCP's
+#    pyproject says fastmcp>=2.12.4, which pip resolves to the latest 3.x;
+#    but data360-mcp's code uses include_fastmcp_meta=False, a kwarg
+#    fastmcp removed after 2.x. Without the pin the subprocess crashes
+#    with "TypeError: FastMCP() got unexpected keyword argument(s):
+#    'include_fastmcp_meta'". 2.14.1 matches what data360-mcp's uv.lock
+#    resolves to locally.
 RUN git clone --depth 1 --branch dev https://github.com/worldbank/data360-mcp.git /opt/data360-mcp \
+    && pip install "fastmcp==2.14.1" \
     && pip install -e /opt/data360-mcp
 
 # Tell the agent to spawn the MCP as a stdio subprocess instead of the
