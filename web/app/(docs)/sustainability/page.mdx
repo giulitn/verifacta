@@ -1,0 +1,111 @@
+export const metadata = {
+  title: "Sustainability — Verifacta",
+  description: "How Verifacta is maintained, what it costs, and how it scales beyond the prototype.",
+};
+
+# Sustainability
+
+Verifacta is open-source (MIT) and runs on widely-available managed
+services. This page describes how the prototype is intended to outlive
+the DATA 360 Challenge and what scaling beyond the demo would look like.
+
+## Stack
+
+| Layer | Service | Why |
+|---|---|---|
+| Frontend | [Vercel](https://vercel.com) Hobby | Free tier covers the demo; first-class Next.js support |
+| Backend | [Railway](https://railway.app) Hobby | Single container, Dockerfile auto-detected, ~$5/mo |
+| LLM | [Cerebras](https://cloud.cerebras.ai) free tier | 1M tokens/day on Llama-class models; fastest inference available |
+| Data | [World Bank Data360](https://data360.worldbank.org) | Official source via the [data360-mcp](https://github.com/worldbank/data360-mcp) server |
+| Observability | [Langfuse Cloud](https://cloud.langfuse.com) free tier | 50k observations/month, more than enough for the demo |
+| Repo | [github.com/giulitn/verifacta](https://github.com/giulitn/verifacta) | MIT license, public, reproducible from a fresh clone |
+
+Switching any of these is one configuration change. The LLM provider
+is a `VERIFACTA_MODEL` environment variable; the deploy targets are
+specified by a Dockerfile and a `vercel.json`-equivalent root setting;
+the observability backend is `LANGFUSE_HOST`.
+
+## Cost model
+
+A realistic month of use after the demo, assuming a handful of
+journalists doing daily research:
+
+| Item | Cost |
+|---|---|
+| Vercel Hobby | $0 |
+| Railway Hobby (1 service, ~512 MB RAM) | ~$5 |
+| Cerebras free tier (~30 queries/day, ~4k tokens each) | $0 |
+| Langfuse free tier (~3k traces/month) | $0 |
+| Domain (optional) | $0–$15/year |
+| **Recurring total** | **~$5/month** |
+
+If LLM volume grows past the free tier, the migration path is paid
+Cerebras (~$0.30/M input tokens for Llama-class models) or any
+provider supported by `init_chat_model`. The agent code does not
+change.
+
+## Maintenance
+
+The repo is intentionally small (~3,000 LOC excluding the frontend
+deps) and tightly scoped:
+
+- **`langgraph_agent/`** is one Python package with seven modules and
+  no test suite yet. The hard rules in [CLAUDE.md](https://github.com/giulitn/verifacta/blob/main/CLAUDE.md)
+  document what must not regress (anti-fabrication, "I don't know"
+  mode, Claim Card hash formula). Future maintainers can read those
+  in five minutes.
+- **`web/`** is a Next.js 15 App Router project with stateless
+  components and a single SSE consumer. No state management library,
+  no GraphQL, no CSS-in-JS — just React + Tailwind.
+- **No database.** Schema migrations, backups, encryption-at-rest,
+  GDPR plans — none of these apply. The smallest sustainable system
+  is one without persistent state.
+
+The expected weekly maintenance is monitoring Langfuse for failed
+traces, pulling the upstream data360-mcp when a new version ships,
+and updating `VERIFACTA_MODEL` if a better free-tier provider becomes
+available.
+
+## Upstream contributions
+
+Verifacta does not fork the data360-mcp. When we need a feature, we
+open a PR upstream so other teams benefit:
+
+- [PR #105](https://github.com/worldbank/data360-mcp/pull/105) adds
+  `data360_get_timeseries_v2`, a fallback that uses the stable
+  Indicators v2 API when Data360 returns empty for legacy WDI series.
+
+This is the longer-term mode of operation: Verifacta as a verification
+*layer* on top of the canonical Data360 infrastructure, contributing
+back rather than diverging.
+
+## What we'd build next
+
+If the prototype graduates past the challenge, the priorities are:
+
+1. **Multi-source verification.** Right now the agent cites only
+   Data360. Adding IMF Data, OECD Data, or UN SDG indicators as
+   additional MCP servers would broaden coverage; the agent loop and
+   Claim Card schema already support arbitrary `(database, indicator)`
+   citations.
+2. **Inline claim verification.** A browser extension that highlights
+   numeric claims in any article and lets a reader request a Claim
+   Card on-the-fly. The existing `/ask` endpoint is the API surface
+   for that.
+3. **Per-newsroom auth.** The current single jury credential becomes
+   an issued-key model so individual editors can revoke access if
+   needed. This is a real database, but only enters scope at scale.
+4. **Pre-computed Claim Cards for trending claims.** A daily job that
+   verifies the top-10 fact-check requests from major outlets and
+   publishes the cards as a public corpus. Useful as a defensive layer
+   during election cycles.
+
+None of these change the integrity contract on the [Methodology](/methodology)
+page. The SHA-256 formula stays.
+
+## License
+
+All Verifacta source code is published under the [MIT License](https://github.com/giulitn/verifacta/blob/main/LICENSE).
+The Data360 integration methodology and Claim Card spec are released
+under Creative Commons Attribution 4.0 ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/))
+per the DATA 360 Challenge requirements.

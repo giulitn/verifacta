@@ -1,0 +1,117 @@
+import MermaidDiagram from "../../components/MermaidDiagram";
+
+export const metadata = {
+  title: "Architecture — Verifacta",
+  description: "How Verifacta routes a journalist's question into a signed, verified answer.",
+};
+
+# Architecture
+
+Verifacta is a **verification layer**, not a chat interface. The whole
+system is built around one constraint: every answer must trace back to
+an official World Bank data point, or the agent must refuse on the
+record. Each component below exists to enforce that constraint.
+
+<MermaidDiagram
+  chart={`flowchart LR
+    User["👤 Journalist<br/>(any browser)"]
+
+    subgraph Vercel["Vercel — Frontend"]
+      direction TB
+      UI["Next.js 15<br/>App Router"]
+      Auth["middleware.ts<br/>HTTP Basic Auth"]
+    end
+
+    subgraph Railway["Railway Container — Backend"]
+      direction TB
+      API["FastAPI<br/>POST /ask · SSE stream"]
+      Rate["slowapi<br/>rate limit per IP"]
+      Agent["Verifacta Agent<br/>(LangGraph create_agent)"]
+      MCP["data360-mcp<br/>(stdio subprocess)"]
+    end
+
+    subgraph External["External Services"]
+      direction TB
+      Cerebras["Cerebras Cloud<br/>gpt-oss-120b"]
+      Data360["Data360 API<br/>worldbank.org"]
+      Langfuse["Langfuse Cloud<br/>traces & evals"]
+    end
+
+    User -- HTTPS --> Auth
+    Auth -- HTTPS --> UI
+    UI -- HTTPS · SSE --> Rate
+    Rate --> API
+    API --> Agent
+    Agent -- chat completions --> Cerebras
+    Agent -- tool calls --> MCP
+    MCP -- HTTPS --> Data360
+    Agent -. async traces .-> Langfuse
+
+    classDef vercel fill:#0a0a0a,color:#fff,stroke:#0a0a0a,stroke-width:2px
+    classDef railway fill:#7c3aed,color:#fff,stroke:#5b21b6,stroke-width:2px
+    classDef external fill:#16a34a,color:#fff,stroke:#15803d,stroke-width:2px
+  `}
+/>
+
+## Request flow
+
+A journalist's question travels six hops before it becomes a signed
+answer:
+
+1. **Browser → Vercel**. The Next.js middleware fails closed in
+   production: any request without HTTP Basic credentials gets a 401
+   before any Verifacta code runs.
+2. **Vercel → Railway**. The Next.js client calls `POST /ask` over
+   HTTPS. The response is a Server-Sent Events stream — tool calls
+   surface in the UI as they happen.
+3. **Rate limit**. `slowapi` keys on `X-Forwarded-For` and rejects
+   anything over the configured per-IP budget with a 429 carrying a
+   human-readable message.
+4. **Agent loop**. The LangGraph agent receives the query and runs a
+   ReAct loop: pick a tool, call it, observe, decide. The system prompt
+   forbids fabrication and forces explicit refusal when the tools come
+   back empty.
+5. **Tools → Data360**. The agent talks to the official World Bank
+   `data360-mcp` server bundled in the same container as a stdio
+   subprocess. The MCP, in turn, queries the Data360 HTTP API directly.
+6. **Claim Card**. Once the agent produces a final answer, the backend
+   collects every cited `(database, indicator)` pair, builds the
+   integrity payload, computes its SHA-256, and emits the structured
+   Claim Card as the last SSE event.
+
+In parallel, every LLM call and every tool invocation lands as a
+node in a Langfuse trace, so a reviewer can audit the reasoning offline.
+
+## Why this shape
+
+**Single-container backend.** The agent and the MCP run in the same
+Docker process. This keeps the deploy story to a single artifact and
+removes one network hop for every tool call. The MCP is spawned with
+the `stdio` transport so we don't even open a TCP port for it.
+
+**Stateless by design.** No database in the request path. Each query
+hits the Data360 API live; nothing is cached, indexed, or persisted.
+The integrity hash and the timestamp travel with the answer, not in
+a sidecar store.
+
+**LLM-agnostic.** The model is configured via `VERIFACTA_MODEL` in the
+shape `<provider>:<model_id>`. The agent layer is provider-neutral
+through `langchain.chat_models.init_chat_model`; switching from
+Cerebras to Anthropic or Groq is one environment variable.
+
+**Frontend at the edge.** Vercel's CDN serves the Next.js shell and
+runs HTTP Basic Auth in middleware. No backend cycles are burned on
+unauthenticated traffic.
+
+## What's NOT in scope
+
+Verifacta deliberately does not include:
+
+- A user database or session store. Auth is a single shared credential
+  for jury evaluation, not a multi-tenant system.
+- A cache between the agent and Data360. Caching would create a
+  divergence between what we cite and what the World Bank publishes;
+  the entire premise is real-time grounding.
+- A re-implementation of any Data360 tool. The MCP server is canonical
+  and maintained upstream — we contribute fixes there ([PR #105](https://github.com/worldbank/data360-mcp/pull/105))
+  rather than fork.

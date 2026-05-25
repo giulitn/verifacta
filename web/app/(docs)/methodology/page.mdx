@@ -1,0 +1,109 @@
+export const metadata = {
+  title: "Methodology — Verifacta",
+  description: "How Verifacta integrates with World Bank Data360 and what the Claim Card guarantees.",
+};
+
+# Methodology
+
+Verifacta turns an LLM into a citation-bound research assistant. The
+agent has no general-purpose knowledge channel: it can only answer
+through the World Bank Data360 catalogue, and every answer ships with
+a cryptographic signature derived from the data it used.
+
+## Data360 integration
+
+The agent consumes the official **World Bank Data360 MCP server**
+([github.com/worldbank/data360-mcp](https://github.com/worldbank/data360-mcp))
+rather than calling the HTTP API directly. The MCP exposes ~15 typed
+tools that the LangGraph agent invokes during its reasoning loop:
+
+| Tool | Purpose |
+|---|---|
+| `data360_search_indicators` | Resolve a natural-language question to an indicator id |
+| `data360_get_data` | Fetch observations for a `(database_id, indicator_id, country, year_range)` |
+| `data360_get_metadata` | Fetch full provenance for an indicator (producer, methodology, definition) |
+| `data360_get_disaggregation` | Enumerate available dimensions (sex, age, urbanization, …) |
+| `data360_find_codelist_value` | Resolve a name to an ISO/codelist value (`"Kenya"` → `"KEN"`) |
+| `data360_get_timeseries` | Indicators v2 fallback for legacy WDI series |
+
+The agent's strict-mode system prompt requires `data360_search_indicators`
+as the entry point of every query, then `data360_get_data` for any
+quantitative answer. Indicator resolution stays with the LLM — Verifacta
+does not maintain a static mapping of Data360's 1,600+ indicators.
+
+## Claim Card
+
+The Claim Card is the verification artifact attached to every answer.
+It has two responsibilities:
+
+1. **Render** the answer + its sources + a UTC timestamp in a form a
+   journalist can quote and a reviewer can inspect.
+2. **Sign** the bundle so any modification — to the answer, to the
+   cited sources, or to the timestamp — invalidates the signature.
+
+### Integrity hash
+
+The signature is a SHA-256 digest over a canonical payload:
+
+```
+sha256_hex = SHA-256( answer + canonical_indicators_json + timestamp )
+
+where canonical_indicators_json = json.dumps(
+  sorted([{"database": d, "indicator": i} for each cited tool call]),
+  sort_keys=True,
+  separators=(",", ":"),
+)
+```
+
+The citation list is built from every distinct call to
+`data360_get_data` or `data360_get_timeseries` in the agent transcript.
+Tool calls that don't fetch data values (`data360_get_metadata`,
+`data360_search_indicators`) enrich an existing citation but never
+introduce a new one.
+
+Sorting and the no-whitespace JSON encoding are the load-bearing
+details: a verifier outside Verifacta can reproduce the hash byte-for-byte
+given just the answer text, the indicator list, and the timestamp.
+
+### Variants
+
+The renderer emits one of two visually distinct cards:
+
+- **Verified** — at least one indicator was cited. Green badge,
+  hash + source list + timestamp.
+- **Refused** — the agent could not ground the answer in Data360.
+  Red badge, an explanatory note, the agent's prose, hash + timestamp.
+  No source list.
+
+The refusal variant is structurally identical (same signature schema)
+so an external verifier doesn't have to special-case it.
+
+## Anti-fabrication guardrails
+
+The system prompt enforces four rules that make refusal the safe
+default:
+
+**A · Stay with what the tools returned.** No causal narrative
+("driven by post-pandemic recovery", "due to monetary tightening")
+unless that reasoning came from a `data360_get_metadata` response.
+
+**B · No external cross-checks.** Mentions like "INDEC reported X" or
+"the IMF said Y" are forbidden unless those values came from an actual
+tool call. The agent must say so when it can't cross-check.
+
+**C · Label derived calculations.** Month-over-month inflation from a
+monthly index, year-over-year deltas, ratios — anything the API did
+not return directly is prefixed `(calculated)` with the arithmetic
+shown.
+
+**D · Clean refusals.** When refusing, the agent does not include
+sample numbers or "for context" ranges. A refusal is a refusal,
+followed by a concrete alternative indicator to ask about.
+
+## Provider neutrality
+
+The LLM is selected at runtime via `VERIFACTA_MODEL=<provider>:<model_id>`.
+The agent code routes through `langchain.chat_models.init_chat_model`
+(or a small Cerebras-specific bypass), so switching providers is one
+environment variable. The guardrails above are model-agnostic — they
+are encoded in the system prompt that travels with every request.

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo, useRef, useState } from "react";
 import Answer from "./components/Answer";
 import ClaimCard from "./components/ClaimCard";
@@ -9,6 +10,14 @@ import SearchInput from "./components/SearchInput";
 import VerificationProgress from "./components/VerificationProgress";
 import { streamAgentEvents } from "./lib/sse";
 import type { AgentEvent, ClaimCardData } from "./lib/types";
+
+const DOC_LINKS = [
+  { href: "/architecture", label: "Architecture" },
+  { href: "/methodology", label: "Methodology" },
+  { href: "/security", label: "Security" },
+  { href: "/user-guide", label: "User guide" },
+  { href: "/sustainability", label: "Sustainability" },
+];
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -100,6 +109,23 @@ export default function Home() {
             )}
           </div>
         )}
+
+        <footer className="pt-6 mt-4 border-t border-neutral-200">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-xs text-neutral-500">
+            <span>Verifacta · DATA 360 Global Challenge 2026</span>
+            <nav aria-label="Documentation" className="flex flex-wrap gap-x-4 gap-y-1">
+              {DOC_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="hover:text-neutral-900 transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </footer>
       </div>
     </main>
   );

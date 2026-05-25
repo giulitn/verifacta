@@ -1,0 +1,111 @@
+export const metadata = {
+  title: "Security — Verifacta",
+  description: "How Verifacta protects credentials, limits abuse, and keeps the integrity contract intact.",
+};
+
+# Security
+
+Verifacta handles no personal data and stores nothing. The threat
+model is narrow: keep abuse cheap, keep credentials out of the
+client, keep the integrity contract verifiable.
+
+## Authentication
+
+The frontend is gated by **HTTP Basic Auth** in Next.js middleware. A
+single shared credential is configured per environment via
+`JURY_USER` and `JURY_PASS` Vercel variables.
+
+The middleware fails closed in production: if either variable is
+missing, every request to every route (except Next's static asset
+paths) returns `401 Unauthorized`. In local development the auth
+is skipped to keep iteration friction low.
+
+This is deliberately a single jury credential rather than a
+multi-user system — there is no user database, no session store, no
+password reset flow, no email service. The auth layer exists so the
+public URL doesn't burn LLM credits on bots; multi-tenant access
+would require a different design we did not build for v1.
+
+## Rate limiting
+
+The `/ask` endpoint is rate-limited by **client IP**, defaulting to
+30 requests per hour. The limit is honored before the agent runs, so
+exhausting the budget never reaches a paid LLM call.
+
+The keying function reads `X-Forwarded-For` because the container
+sits behind Railway's reverse proxy — without that, every request
+would appear to come from the proxy's internal IP and the limit
+would become a de-facto global cap rather than per-client.
+
+When a client exceeds the limit they receive `429 Too Many Requests`
+with a `Retry-After: 60` header and a friendly explanation in the
+response body. The frontend renders that explanation directly so the
+user sees a normal error banner instead of a generic HTTP code.
+
+Rate limit state is in-memory (per-process). For the demo a single
+Railway replica is sufficient; horizontal scaling would require
+slowapi's Redis backend.
+
+## CORS
+
+CORS is restricted to an allowlist of explicit origins, configured via
+the `FRONTEND_ORIGIN` environment variable (comma-separated for
+multiple origins, e.g. production + a staging preview). Trailing
+slashes are stripped defensively because Starlette does strict string
+equality on the `Origin` header.
+
+`localhost:3000` is always allowed so local development works without
+extra configuration.
+
+## Anti-fabrication contract
+
+The hardest-to-mitigate threat is the LLM itself confidently inventing
+plausible-looking statistics. Four mechanisms address this:
+
+1. **Tool-bound answers.** The agent's system prompt forbids
+   answering without a successful Data360 tool call. When tools return
+   empty results, the agent must refuse explicitly rather than
+   substitute from training data.
+2. **Explicit refusal mode.** Refusals render in a visually distinct
+   Claim Card (red border, "Sin datos verificables" badge) so a reader
+   cannot confuse a refusal with a verified answer at a glance.
+3. **No paraphrase of unsupported claims.** The system prompt forbids
+   causal narrative ("driven by …", "due to …") and external
+   references ("INDEC reported …") unless a tool call backs them.
+4. **Labeled derivations.** Calculated values (year-over-year
+   changes, ratios, regional averages) must be prefixed `(calculated)`
+   with the arithmetic visible — so a reader can re-do the math from
+   the cited values.
+
+## Cryptographic provenance
+
+Every Claim Card carries a SHA-256 over `answer + canonical_indicators_json + timestamp`.
+The canonical form is documented on the [Methodology](/methodology)
+page and is reproducible outside of Verifacta — a third party can
+recompute the hash from the published Claim Card fields and confirm
+the answer was not edited post-hoc.
+
+The hash function inputs are deliberately minimal: no model id, no
+agent version, no machine identifier. The signature attests to the
+content of the answer and its citations, nothing else.
+
+## No persistent storage
+
+Verifacta keeps no database. Query logs in Langfuse are observability
+artifacts (no PII; the query itself is the only user-supplied data).
+Claim Cards are not stored server-side — the artifact lives with the
+user who downloaded it. There is no audit trail of who asked what.
+
+This is intentional: a journalist verifying a politically sensitive
+fact should not leak that they're working on it.
+
+## Dependencies
+
+The `data360-mcp` server is pinned to the upstream `dev` branch and
+`fastmcp` is pinned to `2.14.1` to avoid silent breakage when upstream
+ships a major version bump. The Dockerfile pulls both from git at
+build time, not from a stale registry mirror.
+
+LLM provider keys (`CEREBRAS_API_KEY`, `ANTHROPIC_API_KEY`, etc.) live
+in Railway's secret store. They are not present in the repo, in the
+container image, or in any frontend bundle.

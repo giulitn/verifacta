@@ -1,0 +1,102 @@
+export const metadata = {
+  title: "User guide — Verifacta",
+  description: "How to use Verifacta to fact-check a question against World Bank Data360.",
+};
+
+# User guide
+
+Verifacta is built for a journalist with a deadline who needs **one
+verifiable number** and the citation that backs it. The whole flow
+should take less than thirty seconds.
+
+## The basics
+
+1. Open the verifier.
+2. Type a question in plain language — Spanish, English, or any
+   language the LLM handles. You don't need to know indicator codes,
+   ISO country codes, or database names.
+3. Press **Consultar** (or hit Enter).
+4. Watch the agent's steps stream in real time. Each step shows what
+   the agent looked up; the technical detail is one click away if you
+   want to audit it.
+5. Read the verified answer at the top.
+6. Save the **Claim Card** at the bottom — either copy the SHA-256
+   signature or download the JSON. That's your proof.
+
+## Asking better questions
+
+Verifacta works best with concrete, factual questions:
+
+- ✅ "What was Argentina's GDP per capita in 2022?"
+- ✅ "Infant mortality in Latin America between 2018 and 2023"
+- ✅ "Compare CO₂ emissions per capita between Chile and Uruguay in 2020"
+- ✅ "Female labor force participation in Brazil over the last decade"
+
+It will struggle (and refuse) with questions that aren't in the
+Data360 catalogue or that the World Bank doesn't measure:
+
+- ⚠️ "What do Argentine politicians think about climate change?" —
+  not a statistic, not in scope. The agent will refuse and suggest
+  the nearest measurable indicator.
+- ⚠️ "Will GDP grow next year?" — forecasting, not verification.
+- ⚠️ "Was the 2023 election fair?" — qualitative and political.
+
+## Reading the Claim Card
+
+Every successful answer carries a Claim Card with three things you
+care about:
+
+**Sources consulted.** The list of `(database, indicator)` pairs the
+agent pulled from. `WB_WDI · NY.GDP.PCAP.CD` means "Database
+WB_WDI = World Development Indicators, Indicator NY.GDP.PCAP.CD =
+GDP per capita". You can paste these into any World Bank tool to
+re-fetch the underlying data.
+
+**Timestamp.** UTC time when the agent finished. The Data360 catalogue
+updates periodically; the timestamp tells you which vintage you're
+citing.
+
+**SHA-256 signature.** A 64-character hex string. If anyone edits the
+answer text, the cited sources, or the timestamp after the fact, the
+signature won't match. The math is on the [Methodology](/methodology)
+page if you want to recompute it yourself.
+
+## When the agent refuses
+
+A red **Claim Card** with "Sin datos verificables" means the agent
+could not ground the answer in Data360 and chose not to invent one.
+This is the system working — the alternative is plausible-looking
+fabrication.
+
+A refusal typically includes a suggestion: the closest indicator the
+agent found while searching. If you don't know what to ask, that's
+often a useful pointer.
+
+## Citing in a story
+
+In running copy, treat Verifacta like the World Bank itself — the
+citation is the same indicator code you'd put in a footnote, plus the
+Verifacta Claim Card as the audit trail:
+
+> The infant mortality rate in Uruguay was 6.1 deaths per 1,000 live
+> births in 2023 (World Bank, *World Development Indicators*,
+> `SP.DYN.IMRT.IN`, verified via Verifacta on 2026-05-25,
+> SHA-256 `bb79d70…`).
+
+Editors can ask for the SHA-256 to confirm the figure wasn't altered
+between research and publication.
+
+## Limitations to know
+
+- **Data360 is broad but not complete.** Sub-national data (provinces,
+  states, cities) is sparse. Some series end in 2022 or 2023 because
+  the underlying source hasn't released newer data yet.
+- **The agent can only count, not analyze.** It will not interpret a
+  trend politically, attribute causation, or write your lead. Those
+  are editorial calls.
+- **Free-tier LLM caps exist.** If the verifier responds with "Whoa,
+  easy there..." you've hit the per-IP rate limit. Wait a minute.
+- **English remains the canonical language of the indicator
+  metadata.** A Spanish question still works — the agent translates
+  on the fly — but indicator names, codes, and methodology text are
+  in English.
