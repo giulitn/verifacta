@@ -1,6 +1,10 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import type { ClaimCardData } from "../lib/types";
+import { markdownComponents } from "./Answer";
 import CopyButton from "./CopyButton";
 import { DownloadIcon } from "./Icons";
 import Tooltip from "./Tooltip";
@@ -173,9 +177,14 @@ function RejectionCard(data: ClaimCardData) {
       </header>
 
       <Field label="Respuesta del agente">
-        <p className="text-sm text-neutral-800 leading-relaxed whitespace-pre-wrap">
-          {data.answer}
-        </p>
+        <div className="text-sm text-neutral-800 leading-relaxed">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
+            {data.answer}
+          </ReactMarkdown>
+        </div>
       </Field>
 
       <div className="pt-3 border-t border-neutral-100">
