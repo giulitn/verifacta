@@ -1,11 +1,14 @@
 """Verifacta agent — entry point.
 
-Wires the LangGraph ReAct agent to the MCP server over stdio, runs the
-query, and emits a signed Claim Card. Side modules own validation,
-prompts, and rendering — this file is orchestration only.
+Wires the LangGraph ReAct agent to the official World Bank Data360 MCP
+server (https://github.com/worldbank/data360-mcp) over streamable_http,
+runs the query, and emits a signed Claim Card. Side modules own
+configuration, prompts, and rendering — this file is orchestration only.
 
 Usage:
-    python langgraph_agent/agent.py "What is the GDP per capita of Argentina from 2015 to 2022?"
+    1. Start the Data360 MCP server in a separate terminal:
+       cd ~/data360-mcp && uv run poe serve --port 8000 --transport http
+    2. python langgraph_agent/agent.py "What is the GDP per capita of Argentina from 2015 to 2022?"
 """
 
 import asyncio
@@ -26,9 +29,11 @@ import prompts
 logger = logging.getLogger("verifacta")
 
 
-# Tools whose calls actually fetched data values (and therefore deserve a
-# citation on the Claim Card). get_metadata is excluded on purpose — it
-# enriches an existing citation, it doesn't introduce a new data source.
+# Tool calls that actually fetched data values (and therefore deserve a
+# citation on the Claim Card). data360_get_metadata is excluded on purpose —
+# it enriches an existing citation, it doesn't introduce a new data source.
+# data360_get_timeseries is listed in anticipation of the upstream PR that
+# adds an Indicators v2 fallback; it stays inert until that tool exists.
 _V2_DATABASE_LABEL = "WB Indicators v2 (WDI)"
 
 
@@ -37,7 +42,7 @@ def _collect_indicators(messages: list) -> list[dict]:
 
     Returns a list of `{"database": str, "indicator": str}` sorted for stable
     hashing. Each entry corresponds to a unique (database, indicator) pair
-    consulted across get_data and get_timeseries calls.
+    consulted across data-fetching tool calls.
     """
     seen: set[tuple[str, str]] = set()
     citations: list[dict] = []
@@ -45,16 +50,15 @@ def _collect_indicators(messages: list) -> list[dict]:
         for tool_call in getattr(msg, "tool_calls", []):
             name = tool_call.get("name")
             args = tool_call.get("args") or {}
-            indicator = args.get("indicator")
-            if not indicator:
-                continue
-            if name == "get_data":
+            if name == "data360_get_data":
+                indicator = args.get("indicator_id")
                 database = args.get("database_id")
-            elif name == "get_timeseries":
+            elif name == "data360_get_timeseries":
+                indicator = args.get("indicator") or args.get("indicator_id")
                 database = _V2_DATABASE_LABEL
             else:
                 continue
-            if not database:
+            if not indicator or not database:
                 continue
             key = (database, indicator)
             if key in seen:
@@ -83,10 +87,9 @@ async def run(user_query: str) -> None:
 
     client = MultiServerMCPClient(
         {
-            "verifacta": {
-                "command": sys.executable,
-                "args": [config.MCP_SERVER_PATH],
-                "transport": "stdio",
+            "data360": {
+                "url": config.MCP_SERVER_URL,
+                "transport": "streamable_http",
             }
         }
     )

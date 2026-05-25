@@ -31,8 +31,14 @@ _PROVIDER_KEY_ENV = {
     "mistralai": "MISTRAL_API_KEY",
 }
 
+# --- Data360 MCP server ---------------------------------------------------
+# Verifacta consumes the official World Bank Data360 MCP server over HTTP.
+# See https://github.com/worldbank/data360-mcp for the server itself.
+# Default assumes you ran `uv run poe serve --port 8000 --transport http`
+# in a local clone of that repo.
+MCP_SERVER_URL = os.environ.get("DATA360_MCP_URL", "http://localhost:8000/mcp")
+
 # --- Paths ----------------------------------------------------------------
-MCP_SERVER_PATH = str(_REPO_ROOT / "mcp_server" / "server.py")
 CLAIM_CARD_OUTPUT = Path(__file__).resolve().parent / "claim_card_prototype.html"
 LOG_FILE = _REPO_ROOT / "logs" / "verifacta.log"
 
