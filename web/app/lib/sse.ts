@@ -20,6 +20,14 @@ export async function* streamAgentEvents(
   });
 
   if (!response.ok || !response.body) {
+    // Rate limit responses carry a human-readable explanation in `detail`.
+    if (response.status === 429) {
+      const body = (await response.json().catch(() => ({}))) as { detail?: string };
+      throw new Error(
+        body.detail ||
+          "Rate limit reached. Give it a minute and try again.",
+      );
+    }
     throw new Error(`Agent endpoint returned HTTP ${response.status}`);
   }
 

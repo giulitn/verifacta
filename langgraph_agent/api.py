@@ -20,16 +20,19 @@ import logging
 import os
 from typing import AsyncIterator
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 import agent
 
 logger = logging.getLogger("verifacta.api")
 
-app = FastAPI(title="Verifacta API", version="0.2.0")
+app = FastAPI(title="Verifacta API", version="0.3.0")
 
 
 def _parse_origins(raw: str) -> list[str]:
@@ -60,6 +63,48 @@ app.add_middleware(
 )
 
 
+# Rate limit — keyed by client IP, in-memory (single-replica is fine
+# for the demo; if we ever scale horizontally, point slowapi at Redis).
+# RATE_LIMIT honors slowapi's syntax: "<count>/<period>" or a list
+# separated by ";" (e.g. "30/hour;5/minute"). Default is generous for a
+# journalist doing real research but firm enough to keep abuse cheap.
+def _client_ip(request: Request) -> str:
+    """Return the client's IP, honoring X-Forwarded-For behind a proxy.
+
+    Railway terminates TLS and forwards to the container; without this
+    the rate limit would key on the proxy's internal IP and become a
+    de-facto global limit instead of per-client.
+    """
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return get_remote_address(request)
+
+
+_RATE_LIMIT = os.getenv("RATE_LIMIT", "30/hour")
+limiter = Limiter(key_func=_client_ip, headers_enabled=True)
+app.state.limiter = limiter
+
+logger.info("Rate limit on /ask: %s per client IP", _RATE_LIMIT)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limit_exceeded(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Friendly 429 — the LLM credits are real money, not a bottomless well."""
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": (
+                "Whoa, easy there. The LLM credits behind every answer are "
+                "real money — and even the World Bank rate-limits us. Give "
+                "it a minute and try again."
+            ),
+            "limit": str(exc.detail),
+        },
+        headers={"Retry-After": "60"},
+    )
+
+
 class AskRequest(BaseModel):
     """Body of POST /ask."""
 
@@ -83,7 +128,8 @@ def root() -> dict:
 
 
 @app.post("/ask")
-async def ask(req: AskRequest) -> StreamingResponse:
+@limiter.limit(_RATE_LIMIT)
+async def ask(request: Request, req: AskRequest) -> StreamingResponse:
     """Stream the agent run as Server-Sent Events.
 
     Clients consume the response as text/event-stream and parse each

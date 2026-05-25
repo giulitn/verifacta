@@ -45,6 +45,7 @@ The frontend should display `Reachable: yes` and the JSON body of `/health`.
    - `ANTHROPIC_API_KEY` — your key (or whichever provider you're using)
    - `VERIFACTA_MODEL=anthropic:claude-sonnet-4-6` (or other)
    - `FRONTEND_ORIGIN` — the Vercel URL once you have it (you'll come back to set this)
+   - `RATE_LIMIT` — optional, defaults to `30/hour`. Uses [slowapi syntax](https://slowapi.readthedocs.io/en/latest/): `"<count>/<period>"` or a semicolon-joined list like `"30/hour;5/minute"`. Per client IP (X-Forwarded-For aware).
 6. Healthcheck is `/health` (already configured in `railway.json`).
 
 ## Production: Vercel (frontend)
