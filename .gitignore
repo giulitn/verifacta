@@ -21,6 +21,15 @@ logs/
 .claude/
 CLAUDE.md
 
+# Next.js (web/)
+web/node_modules/
+web/.next/
+web/out/
+web/.vercel/
+web/next-env.d.ts.bak
+web/.env.local
+web/.env.*.local
+
 # OS / editor
 .DS_Store
 .idea/
