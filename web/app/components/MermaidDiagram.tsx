@@ -7,12 +7,11 @@ type Props = {
 };
 
 /**
- * Renders a Mermaid diagram client-side.
+ * Renders a Mermaid diagram client-side, themed to match the dark UI.
  *
- * Mermaid relies on the browser DOM (it injects SVG via JS), so we
- * dynamic-import it inside an effect to keep it out of the SSR bundle.
- * Each render uses a fresh `id` so two diagrams on the same page never
- * collide.
+ * Mermaid relies on the browser DOM, so we dynamic-import it inside
+ * an effect to keep it out of the SSR bundle. Each render uses a fresh
+ * `id` so two diagrams on the same page never collide.
  */
 export default function MermaidDiagram({ chart }: Props) {
   const reactId = useId();
@@ -27,15 +26,24 @@ export default function MermaidDiagram({ chart }: Props) {
         const mermaid = (await import("mermaid")).default;
         mermaid.initialize({
           startOnLoad: false,
-          theme: "neutral",
+          theme: "dark",
+          darkMode: true,
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
           themeVariables: {
-            primaryColor: "#f0fdf4",
-            primaryBorderColor: "#16a34a",
-            primaryTextColor: "#111827",
-            lineColor: "#737373",
-            tertiaryColor: "#f8f9fa",
+            background: "#0a0f1a",
+            primaryColor: "#131f2c",
+            primaryBorderColor: "#22c55e",
+            primaryTextColor: "#f9fafb",
+            secondaryColor: "#1a2738",
+            secondaryBorderColor: "rgba(255,255,255,0.12)",
+            lineColor: "#64748b",
+            textColor: "#cbd5e1",
+            mainBkg: "#131f2c",
+            nodeBorder: "rgba(255,255,255,0.16)",
+            clusterBkg: "rgba(255,255,255,0.02)",
+            clusterBorder: "rgba(255,255,255,0.08)",
+            edgeLabelBackground: "#0a0f1a",
           },
         });
         const { svg } = await mermaid.render(safeId, chart);
@@ -51,7 +59,7 @@ export default function MermaidDiagram({ chart }: Props) {
 
   if (error) {
     return (
-      <pre className="bg-red-50 border border-red-200 rounded-md p-4 my-4 text-xs text-red-800 overflow-x-auto">
+      <pre className="bg-red-500/[0.08] border border-red-500/30 rounded-md p-4 my-4 text-xs text-red-300 overflow-x-auto">
         Diagram failed to render:{"\n"}
         {error}
       </pre>
@@ -60,8 +68,7 @@ export default function MermaidDiagram({ chart }: Props) {
 
   return (
     <figure
-      className="my-6 not-prose rounded-xl border border-neutral-200 bg-white p-4 overflow-x-auto"
-      // mermaid emits sanitized SVG, dangerouslySetInnerHTML is safe here.
+      className="my-6 not-prose rounded-xl border border-white/[0.08] bg-[#131f2c] p-4 overflow-x-auto"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );

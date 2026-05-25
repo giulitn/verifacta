@@ -1,9 +1,9 @@
 "use client";
 
+import { Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentEvent } from "../lib/types";
 import { doneLabel, runningLabel } from "../lib/tool-labels";
-import { CheckIcon, SpinnerIcon } from "./Icons";
 
 type ToolCallStartEvent = Extract<AgentEvent, { type: "tool_call_start" }>;
 
@@ -14,18 +14,6 @@ type Props = {
 
 const STEP_REVEAL_DELAY_MS = 600;
 
-/**
- * Sequential reveal of the agent's tool calls.
- *
- * Even when the backend emits two events in the same tick (parallel
- * tool calls), the UI paces them at STEP_REVEAL_DELAY_MS between visible
- * entries so the reasoning reads as a deliberate sequence rather than a
- * flash.
- *
- * Once streaming finishes, the whole section auto-collapses into a
- * single-line summary that the user can re-expand if they want to
- * audit the steps.
- */
 export default function VerificationProgress({ events, isStreaming }: Props) {
   const startEvents = events.filter(
     (e): e is ToolCallStartEvent => e.type === "tool_call_start",
@@ -62,8 +50,6 @@ export default function VerificationProgress({ events, isStreaming }: Props) {
     }, STEP_REVEAL_DELAY_MS);
   }
 
-  // Once everything is revealed AND the stream ended, default the panel
-  // to collapsed. The user can re-open it.
   const allRevealed =
     visibleIds.length === startEvents.length && startEvents.length > 0;
   const streamDone = !isStreaming && allRevealed;
@@ -74,22 +60,24 @@ export default function VerificationProgress({ events, isStreaming }: Props) {
 
   if (startEvents.length === 0 && !isStreaming) return null;
 
-  const visibleEvents = startEvents.filter((e) => visibleIds.includes(e.data.id));
+  const visibleEvents = startEvents.filter((e) =>
+    visibleIds.includes(e.data.id),
+  );
 
   return (
     <section
       aria-label="Pasos de verificación"
-      className="bg-white border border-neutral-200 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+      className="bg-[#131f2c] border border-white/[0.08] rounded-xl overflow-hidden"
     >
       <details open={forceOpen || isStreaming} className="group">
-        <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-          <div className="flex items-center gap-2">
+        <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-white/[0.02] transition-colors">
+          <div className="flex items-center gap-2.5">
             {isStreaming ? (
-              <SpinnerIcon className="h-4 w-4 text-emerald-600" />
+              <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
             ) : (
-              <CheckIcon className="h-4 w-4 text-emerald-600" />
+              <Check className="h-4 w-4 text-emerald-400" />
             )}
-            <span className="text-sm font-medium text-neutral-800">
+            <span className="text-sm font-medium text-white">
               {isStreaming
                 ? "Verificando contra datos oficiales…"
                 : `Verificado en ${startEvents.length} ${
@@ -97,17 +85,17 @@ export default function VerificationProgress({ events, isStreaming }: Props) {
                   }`}
             </span>
           </div>
-          <span className="text-xs text-neutral-500 group-open:hidden">
+          <span className="text-xs text-slate-500 group-open:hidden">
             Ver detalle
           </span>
-          <span className="text-xs text-neutral-500 hidden group-open:inline">
+          <span className="text-xs text-slate-500 hidden group-open:inline">
             Ocultar
           </span>
         </summary>
 
         {isStreaming && (
-          <div className="h-1 bg-emerald-50 overflow-hidden mx-4">
-            <div className="h-full w-1/3 bg-gradient-to-r from-emerald-400 to-emerald-600 animate-[progress-slide_1.5s_ease-in-out_infinite]" />
+          <div className="h-0.5 bg-emerald-500/10 overflow-hidden mx-4">
+            <div className="h-full w-1/3 bg-gradient-to-r from-emerald-400 to-emerald-500 animate-[progress-slide_1.5s_ease-in-out_infinite]" />
           </div>
         )}
 
@@ -121,28 +109,25 @@ export default function VerificationProgress({ events, isStreaming }: Props) {
               >
                 <span className="mt-0.5 shrink-0">
                   {isDone ? (
-                    <CheckIcon className="h-4 w-4 text-emerald-600" />
+                    <Check className="h-4 w-4 text-emerald-400" />
                   ) : (
-                    <SpinnerIcon className="h-4 w-4 text-amber-500" />
+                    <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
                   )}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-neutral-800">
+                  <p className="text-sm text-slate-200">
                     {isDone
                       ? doneLabel(event.data.name)
                       : runningLabel(event.data.name)}
                   </p>
                   <details className="mt-1">
-                    <summary className="text-xs text-neutral-500 cursor-pointer hover:text-neutral-700 select-none">
+                    <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-300 select-none transition-colors">
                       Ver detalle técnico
                     </summary>
-                    <pre className="mt-1.5 px-2.5 py-2 text-[11px] leading-snug text-neutral-600 bg-neutral-50 rounded-md overflow-x-auto font-mono">
+                    <pre className="mt-1.5 px-2.5 py-2 text-[11px] leading-snug text-slate-400 bg-black/30 border border-white/[0.04] rounded-md overflow-x-auto font-mono">
                       {event.data.name}({"\n"}
                       {Object.entries(event.data.args)
-                        .map(
-                          ([k, v]) =>
-                            `  ${k}: ${JSON.stringify(v)}`,
-                        )
+                        .map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`)
                         .join(",\n")}
                       {"\n"})
                     </pre>

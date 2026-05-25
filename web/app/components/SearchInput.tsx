@@ -1,7 +1,7 @@
 "use client";
 
+import { ArrowRight, CornerDownLeft, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ArrowRightIcon, SpinnerIcon } from "./Icons";
 
 type Props = {
   value: string;
@@ -19,12 +19,6 @@ const ROTATING_PLACEHOLDERS = [
 
 const ROTATION_INTERVAL_MS = 3000;
 
-/**
- * One-line search bar with an integrated "Consultar" button.
- * Placeholder rotates every 3s when the input is empty AND not focused —
- * focusing or typing pauses the rotation so the cursor isn't fighting
- * with shifting text.
- */
 export default function SearchInput({
   value,
   onChange,
@@ -42,18 +36,25 @@ export default function SearchInput({
     return () => window.clearInterval(id);
   }, [isFocused, value]);
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter" && !isStreaming && value.trim()) {
+  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter sends, Shift+Enter newlines (ChatGPT pattern).
+    if (event.key === "Enter" && !event.shiftKey && !isStreaming && value.trim()) {
       event.preventDefault();
       onSubmit();
     }
   }
 
   return (
-    <div className="space-y-2">
-      <div className="relative">
-        <input
-          type="text"
+    <div className="space-y-3">
+      <div
+        className={`relative rounded-2xl border bg-[#131f2c] shadow-[0_8px_24px_rgba(0,0,0,0.3)] transition-all ${
+          isFocused
+            ? "border-emerald-500/60 ring-2 ring-emerald-500/20"
+            : "border-white/10 hover:border-white/[0.16]"
+        }`}
+      >
+        <textarea
+          rows={2}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setIsFocused(true)}
@@ -62,35 +63,45 @@ export default function SearchInput({
           placeholder={ROTATING_PLACEHOLDERS[placeholderIndex]}
           disabled={isStreaming}
           aria-label="Consulta a verificar"
-          className="w-full pl-4 pr-32 py-3.5 text-base text-neutral-900 bg-white border border-neutral-300 rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.04)] placeholder:text-neutral-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-colors disabled:bg-neutral-50 disabled:cursor-not-allowed"
+          className="block w-full bg-transparent px-5 pt-5 pb-2 text-lg text-white placeholder:text-slate-500 resize-none focus:outline-none disabled:cursor-not-allowed leading-snug"
         />
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={isStreaming || !value.trim()}
-          aria-label="Verificar afirmación"
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-neutral-900 hover:bg-neutral-800 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {isStreaming ? (
-            <>
-              <SpinnerIcon className="h-4 w-4" />
-              Verificando
-            </>
-          ) : (
-            <>
-              Consultar
-              <ArrowRightIcon className="h-4 w-4" />
-            </>
-          )}
-        </button>
+        <div className="flex items-center justify-between gap-3 px-3 pb-3">
+          <p className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 pl-2">
+            <kbd className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.04] text-[10px] font-mono text-slate-400">
+              <CornerDownLeft className="h-2.5 w-2.5" />
+              Enter
+            </kbd>
+            para consultar
+          </p>
+          <span className="sm:hidden" />
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={isStreaming || !value.trim()}
+            aria-label="Verificar afirmación"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-[#0a0f1a] bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isStreaming ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Verificando
+              </>
+            ) : (
+              <>
+                Consultar
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        </div>
       </div>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-slate-500 leading-relaxed">
         Conectado al{" "}
         <a
           href="https://data360.worldbank.org"
           target="_blank"
           rel="noreferrer"
-          className="underline decoration-dotted hover:text-neutral-700"
+          className="text-slate-400 underline decoration-dotted hover:text-slate-200"
         >
           catálogo Data360 del Banco Mundial
         </a>

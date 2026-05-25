@@ -74,8 +74,9 @@ export default function Home() {
   const hasResults = events.length > 0;
 
   return (
-    <main className="min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8">
+    <main className="min-h-screen relative">
+      <div className="absolute inset-x-0 top-0 h-[400px] hero-glow pointer-events-none" />
+      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-20 space-y-10">
         <Header onPickExample={setQuery} />
 
         <SearchInput
@@ -94,9 +95,9 @@ export default function Home() {
             {errorMessage && (
               <div
                 role="alert"
-                className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                className="rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3 text-sm text-red-300"
               >
-                <strong className="font-semibold">Error:</strong>{" "}
+                <strong className="font-semibold text-red-200">Error:</strong>{" "}
                 {errorMessage}
               </div>
             )}
@@ -110,15 +111,18 @@ export default function Home() {
           </div>
         )}
 
-        <footer className="pt-6 mt-4 border-t border-neutral-200">
-          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-xs text-neutral-500">
+        <footer className="pt-8 mt-6 border-t border-white/[0.06]">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-xs text-slate-500">
             <span>Verifacta · DATA 360 Global Challenge 2026</span>
-            <nav aria-label="Documentation" className="flex flex-wrap gap-x-4 gap-y-1">
+            <nav
+              aria-label="Documentation"
+              className="flex flex-wrap gap-x-4 gap-y-1"
+            >
               {DOC_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="hover:text-neutral-900 transition-colors"
+                  className="hover:text-white transition-colors"
                 >
                   {link.label}
                 </Link>

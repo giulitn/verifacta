@@ -3,10 +3,15 @@ import type { NextConfig } from "next";
 
 const withMDX = createMDX({
   extension: /\.mdx?$/,
+  options: {
+    // Turbopack requires plugin references to be serializable, so we pass
+    // the package name as a string rather than the imported function.
+    // GFM enables pipe-tables, strikethrough, task lists, autolinks.
+    remarkPlugins: [["remark-gfm"]],
+  },
 });
 
 const nextConfig: NextConfig = {
-  // Treat .mdx files as routable pages alongside .tsx
   pageExtensions: ["ts", "tsx", "js", "jsx", "mdx"],
   poweredByHeader: false,
 };
