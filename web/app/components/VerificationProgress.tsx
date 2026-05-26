@@ -3,7 +3,7 @@
 import { Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentEvent } from "../lib/types";
-import { doneLabel, runningLabel } from "../lib/tool-labels";
+import { doneLabel, helperLabel, runningLabel } from "../lib/tool-labels";
 
 type ToolCallStartEvent = Extract<AgentEvent, { type: "tool_call_start" }>;
 
@@ -120,7 +120,12 @@ export default function VerificationProgress({ events, isStreaming }: Props) {
                       ? doneLabel(event.data.name)
                       : runningLabel(event.data.name)}
                   </p>
-                  <details className="mt-1">
+                  {helperLabel(event.data.name) && (
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      {helperLabel(event.data.name)}
+                    </p>
+                  )}
+                  <details className="mt-2">
                     <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-300 select-none transition-colors">
                       Ver detalle técnico
                     </summary>
