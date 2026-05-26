@@ -1,8 +1,9 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useMemo, useRef, useState } from "react";
-import Answer from "./components/Answer";
+import ChatWindow, { type ChatMessage } from "./components/ChatWindow";
 import ClaimCard from "./components/ClaimCard";
 import ExampleChat from "./components/ExampleChat";
 import ExampleQueries from "./components/ExampleQueries";
@@ -24,6 +25,7 @@ const DOC_LINKS = [
 
 export default function Home() {
   const [query, setQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -34,6 +36,7 @@ export default function Home() {
     const trimmed = query.trim();
     if (!trimmed || isStreaming) return;
     if (!apiUrl) {
+      setSubmittedQuery(trimmed);
       setEvents([
         {
           type: "error",
@@ -47,6 +50,7 @@ export default function Home() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    setSubmittedQuery(trimmed);
     setEvents([]);
     setIsStreaming(true);
     try {
@@ -69,12 +73,28 @@ export default function Home() {
     }
   }, [apiUrl, query, isStreaming]);
 
-  const { claimCard, errorMessage } = useMemo(
+  const handleReset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsStreaming(false);
+    setEvents([]);
+    setSubmittedQuery("");
+    setQuery("");
+  }, []);
+
+  const { claimCard, finalAnswer, errorMessage } = useMemo(
     () => summarizeEvents(events),
     [events],
   );
 
-  const hasResults = events.length > 0;
+  const hasResults = events.length > 0 || isStreaming;
+  const agentText = finalAnswer ?? claimCard?.answer ?? "";
+  const messages = useMemo<ChatMessage[]>(() => {
+    if (!submittedQuery) return [];
+    const msgs: ChatMessage[] = [{ role: "user", content: submittedQuery }];
+    if (agentText) msgs.push({ role: "agent", content: agentText });
+    return msgs;
+  }, [submittedQuery, agentText]);
 
   return (
     <main className="min-h-screen relative">
@@ -82,7 +102,7 @@ export default function Home() {
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-20 space-y-12">
         <Header />
 
-        {!hasResults && !isStreaming && (
+        {!hasResults && (
           <>
             <HowItWorks />
             <section
@@ -104,33 +124,52 @@ export default function Home() {
           </>
         )}
 
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          onSubmit={handleSubmit}
-          isStreaming={isStreaming}
-        />
+        {!hasResults && (
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            onSubmit={handleSubmit}
+            isStreaming={isStreaming}
+          />
+        )}
 
         {hasResults && (
-          <div className="space-y-5">
-            <VerificationProgress events={events} isStreaming={isStreaming} />
+          <div className="space-y-4">
+            <ChatWindow
+              messages={messages}
+              claimCardSlot={
+                claimCard ? <ClaimCard {...claimCard} embedded /> : undefined
+              }
+              isLoading={isStreaming}
+              title={claimCard ? "Consulta verificada" : "Consulta"}
+            />
 
             {errorMessage && (
               <div
                 role="alert"
-                className="rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3 text-sm text-red-300"
+                className="max-w-[680px] mx-auto rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3 text-sm text-red-300"
               >
                 <strong className="font-semibold text-red-200">Error:</strong>{" "}
                 {errorMessage}
               </div>
             )}
 
-            {claimCard && (
-              <>
-                <Answer text={claimCard.answer} />
-                <ClaimCard {...claimCard} />
-              </>
-            )}
+            <div className="max-w-[680px] mx-auto space-y-3">
+              <VerificationProgress
+                events={events}
+                isStreaming={isStreaming}
+              />
+              <div className="flex justify-start">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded px-1 py-0.5"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Nueva consulta
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -162,15 +201,18 @@ export default function Home() {
 
 type EventSummary = {
   claimCard: ClaimCardData | null;
+  finalAnswer: string | null;
   errorMessage: string | null;
 };
 
 function summarizeEvents(events: AgentEvent[]): EventSummary {
   let claimCard: ClaimCardData | null = null;
+  let finalAnswer: string | null = null;
   let errorMessage: string | null = null;
   for (const event of events) {
     if (event.type === "claim_card") claimCard = event.data;
+    else if (event.type === "final_answer") finalAnswer = event.data.text;
     else if (event.type === "error") errorMessage = event.data.message;
   }
-  return { claimCard, errorMessage };
+  return { claimCard, finalAnswer, errorMessage };
 }

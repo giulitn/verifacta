@@ -29,6 +29,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 import agent
+import claim_store
 
 logger = logging.getLogger("verifacta.api")
 
@@ -124,7 +125,25 @@ def root() -> dict:
         "docs": "/docs",
         "health": "/health",
         "ask": "POST /ask  body: {\"query\": \"...\"}",
+        "claim": "GET /c/{sha256}  — fetch a persisted Claim Card",
     }
+
+
+@app.get("/c/{sha256}")
+def get_claim(sha256: str) -> dict:
+    """Return a previously emitted Claim Card by its SHA-256 digest.
+
+    This is the permalink that journalists share — a reader who opens it
+    gets the original answer, the cited indicator, the verification
+    timestamp, and the hash that ties them together. If the hash doesn't
+    resolve, return 404 instead of revealing which paths exist.
+    """
+    if not claim_store.is_valid_hash(sha256):
+        raise HTTPException(status_code=400, detail="invalid sha256 format")
+    card = claim_store.load(sha256)
+    if card is None:
+        raise HTTPException(status_code=404, detail="claim not found")
+    return card
 
 
 @app.post("/ask")
@@ -153,9 +172,20 @@ async def ask(request: Request, req: AskRequest) -> StreamingResponse:
 
 
 async def _event_source(query: str) -> AsyncIterator[bytes]:
-    """Translate the agent's event stream into SSE wire bytes."""
+    """Translate the agent's event stream into SSE wire bytes.
+
+    Side-effect: when a `claim_card` event passes through, persist its
+    payload so the permalink (`GET /c/{sha256}`) resolves later. The
+    write is best-effort — a storage failure must not break the stream
+    the journalist is watching live.
+    """
     try:
         async for event in agent.run_agent_stream(query):
+            if event["type"] == "claim_card":
+                try:
+                    claim_store.save(event["data"])
+                except Exception:
+                    logger.exception("Failed to persist Claim Card")
             yield _format_sse(event["type"], event["data"])
         yield _format_sse("done", {})
     except Exception as exc:

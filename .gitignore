@@ -17,6 +17,9 @@ claim_card_prototype.html
 logs/
 *.log
 
+# Persisted Claim Cards (runtime store served by GET /c/{sha256})
+claims/
+
 # Claude Code (personal, not for the public repo)
 .claude/
 CLAUDE.md
