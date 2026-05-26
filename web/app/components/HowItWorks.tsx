@@ -9,41 +9,37 @@ type Step = {
 const STEPS: Step[] = [
   {
     Icon: MessageSquare,
-    title: "Hacé tu pregunta",
-    body: "En lenguaje natural, sin formato técnico. Datos puntuales, comparaciones o series históricas.",
+    title: "Hacés tu pregunta",
+    body: "En lenguaje natural, como le preguntarías a un colega.",
   },
   {
     Icon: Database,
-    title: "Consultamos al Banco Mundial",
-    body: "Verifacta busca el indicador, lo trae del catálogo oficial Data360 y lo cita literal — sin paráfrasis.",
+    title: "Buscamos el dato oficial",
+    body: "Consultamos el catálogo Data360 del Banco Mundial en tiempo real.",
   },
   {
     Icon: ShieldCheck,
-    title: "Recibís una respuesta verificada",
-    body: "Con su fuente, fecha exacta y una firma criptográfica para que cualquiera pueda corroborarla.",
+    title: "Recibís la respuesta sellada",
+    body: "Con fuente exacta y una firma matemática única. Si cambia una sola letra del dato o de la fuente, la firma deja de coincidir.",
   },
 ];
 
 export default function HowItWorks() {
   return (
-    <section aria-label="Cómo funciona Verifacta" className="space-y-5">
+    <section aria-label="Cómo funciona Verifacta" className="space-y-4">
       <p className="text-xs font-semibold uppercase tracking-[2px] text-emerald-400">
         Cómo funciona
       </p>
-      <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <ol className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-6">
         {STEPS.map((step, index) => (
-          <li
-            key={step.title}
-            className="bg-[#131f2c] border border-white/[0.08] rounded-xl p-5 space-y-3 hover:border-white/[0.16] transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <span
+          <li key={step.title} className="space-y-2.5">
+            <div className="flex items-center gap-3">
+              <step.Icon
                 aria-hidden="true"
-                className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-500/[0.08] border border-emerald-500/20 text-emerald-400"
-              >
-                <step.Icon className="w-5 h-5" strokeWidth={1.75} />
-              </span>
-              <span className="text-xs font-mono text-slate-600">
+                className="w-5 h-5 text-emerald-400"
+                strokeWidth={1.5}
+              />
+              <span className="text-[11px] font-mono text-slate-600">
                 {String(index + 1).padStart(2, "0")}
               </span>
             </div>
@@ -54,10 +50,6 @@ export default function HowItWorks() {
           </li>
         ))}
       </ol>
-      <p className="text-xs text-slate-500 italic">
-        Verifacta no genera ni inventa datos. Solo consulta el catálogo
-        oficial del Banco Mundial y firma cada respuesta.
-      </p>
     </section>
   );
 }

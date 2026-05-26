@@ -17,30 +17,22 @@
   --danger-bg: rgba(239, 68, 68, 0.08);
 }
 
-/* Wire the Instrument Serif variable into Tailwind v4's font tokens so
-   `font-serif` utility resolves to it. The default sans stack is system
-   fonts (back to the pre-Geist look) — the h1 hero title relies on these
-   metrics to lay out without awkward line breaks. */
+/* One sans family across the app — Geist via next/font, wired through
+   the --font-sans variable. No serif fallback: keeps headings and body
+   in the same voice, which reads more sober for a verification tool. */
 @theme inline {
-  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 html,
 body {
   background: var(--background);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* Section headings (everything except the hero h1) get the editorial
-   serif — gives the page a more original character without breaking
-   the headline metrics. */
-h2,
-h3 {
-  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
 }
 
 /* Indeterminate progress bar under the search bar while the agent runs. */
@@ -96,4 +88,26 @@ h3 {
 }
 .caret-blink {
   animation: caret-blink 1s steps(1, end) infinite;
+}
+
+/* Chat typing indicator: each dot bounces with a stagger driven by
+   per-element animation-delay. Used by the example chat in the landing. */
+@keyframes typing-dot {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+.typing-dot {
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
+/* Generic fade-in used to soften content swaps (e.g. typing → response). */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

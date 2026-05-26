@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useCallback, useMemo, useRef, useState } from "react";
 import Answer from "./components/Answer";
 import ClaimCard from "./components/ClaimCard";
+import ExampleChat from "./components/ExampleChat";
+import ExampleQueries from "./components/ExampleQueries";
 import Header from "./components/Header";
 import HowItWorks from "./components/HowItWorks";
-import IndicatorExplainer from "./components/IndicatorExplainer";
+import KnowledgeBase from "./components/KnowledgeBase";
 import SearchInput from "./components/SearchInput";
-import ThemesSection from "./components/ThemesSection";
 import VerificationProgress from "./components/VerificationProgress";
 import { streamAgentEvents } from "./lib/sse";
 import type { AgentEvent, ClaimCardData } from "./lib/types";
@@ -78,8 +79,30 @@ export default function Home() {
   return (
     <main className="min-h-screen relative">
       <div className="absolute inset-x-0 top-0 h-[400px] hero-glow pointer-events-none" />
-      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-20 space-y-10">
-        <Header onPickExample={setQuery} />
+      <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-20 space-y-12">
+        <Header />
+
+        {!hasResults && !isStreaming && (
+          <>
+            <HowItWorks />
+            <section
+              aria-label="Ejemplo de respuesta verificada"
+              className="space-y-4"
+            >
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[2px] text-emerald-400">
+                  Así se ve una respuesta verificada
+                </p>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Cada consulta genera esto — un dato oficial con su fuente y
+                  su sello.
+                </p>
+              </div>
+              <ExampleChat />
+            </section>
+            <ExampleQueries onPick={setQuery} />
+          </>
+        )}
 
         <SearchInput
           value={query}
@@ -87,14 +110,6 @@ export default function Home() {
           onSubmit={handleSubmit}
           isStreaming={isStreaming}
         />
-
-        {!hasResults && !isStreaming && (
-          <>
-            <IndicatorExplainer />
-            <ThemesSection />
-            <HowItWorks />
-          </>
-        )}
 
         {hasResults && (
           <div className="space-y-5">
@@ -118,6 +133,8 @@ export default function Home() {
             )}
           </div>
         )}
+
+        <KnowledgeBase />
 
         <footer className="pt-8 mt-6 border-t border-white/[0.06]">
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-xs text-slate-500">

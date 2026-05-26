@@ -17,7 +17,7 @@ export default function Answer({ text }: Props) {
         Verificado
       </span>
 
-      <article className="font-serif pr-24 text-slate-100 text-lg sm:text-xl leading-relaxed">
+      <article className="pr-24 text-slate-100 text-lg sm:text-xl leading-relaxed">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={markdownComponents}
