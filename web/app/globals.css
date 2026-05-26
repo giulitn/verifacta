@@ -17,21 +17,30 @@
   --danger-bg: rgba(239, 68, 68, 0.08);
 }
 
-/* Wire next/font Geist variables into Tailwind v4's font tokens so
-   `font-sans` / `font-mono` utilities use them. */
+/* Wire the Instrument Serif variable into Tailwind v4's font tokens so
+   `font-serif` utility resolves to it. The default sans stack is system
+   fonts (back to the pre-Geist look) — the h1 hero title relies on these
+   metrics to lay out without awkward line breaks. */
 @theme inline {
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
 }
 
 html,
 body {
   background: var(--background);
   color: var(--text);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Section headings (everything except the hero h1) get the editorial
+   serif — gives the page a more original character without breaking
+   the headline metrics. */
+h2,
+h3 {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
 }
 
 /* Indeterminate progress bar under the search bar while the agent runs. */

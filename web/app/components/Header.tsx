@@ -28,7 +28,7 @@ export default function Header({ onPickExample }: Props) {
               className="text-emerald-400"
             />
           </h1>
-          <p className="text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed">
+          <p className="font-serif text-lg sm:text-xl text-slate-300 max-w-2xl leading-relaxed">
             Cada respuesta viene directo del Banco Mundial: el número exacto,
             la fuente oficial, y un sello que prueba que nadie lo tocó. No se
             agrega contexto, no se infieren datos y te entregamos un sello
