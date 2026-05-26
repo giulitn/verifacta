@@ -54,6 +54,28 @@ function downloadJson(data: ClaimCardData) {
   URL.revokeObjectURL(url);
 }
 
+function buildCitation(data: ClaimCardData): string {
+  const cleanAnswer = data.answer.trim();
+  const dateStr = new Intl.DateTimeFormat("es-AR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(data.timestamp));
+  const isSingle = data.indicators.length === 1;
+  const header = isSingle ? "Fuente oficial:" : "Fuentes oficiales:";
+  const sourceLines = data.indicators.map(
+    (i) => `https://data360.worldbank.org/en/indicator/${i.indicator}`,
+  );
+  return [
+    cleanAnswer,
+    "",
+    header,
+    ...sourceLines,
+    "",
+    `Verificado el ${dateStr} con verifacta.app`,
+  ].join("\n");
+}
+
 export default function ClaimCard(data: ClaimCardData) {
   const verified = data.indicators.length > 0;
   if (!verified) return <RejectionCard {...data} />;
@@ -114,19 +136,26 @@ export default function ClaimCard(data: ClaimCardData) {
       </div>
 
       <footer className="border-t border-white/[0.06] bg-black/[0.2] px-6 sm:px-7 py-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Para citar o verificar
           </h4>
-          <button
-            type="button"
-            onClick={() => downloadJson(data)}
-            aria-label="Descargar Claim Card en formato JSON"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-300 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Descargar JSON
-          </button>
+          <div className="flex items-center gap-2">
+            <CopyButton
+              value={buildCitation(data)}
+              ariaLabel="Copiar respuesta como cita lista para pegar"
+              label="Copiar como cita"
+            />
+            <button
+              type="button"
+              onClick={() => downloadJson(data)}
+              aria-label="Descargar Claim Card en formato JSON"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-300 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            >
+              <Download className="h-3.5 w-3.5" />
+              JSON
+            </button>
+          </div>
         </div>
 
         <div className="flex items-start gap-2">

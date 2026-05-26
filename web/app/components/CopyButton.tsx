@@ -6,9 +6,10 @@ import { useState } from "react";
 type Props = {
   value: string;
   ariaLabel: string;
+  label?: string;
 };
 
-export default function CopyButton({ value, ariaLabel }: Props) {
+export default function CopyButton({ value, ariaLabel, label = "Copiar" }: Props) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -36,7 +37,7 @@ export default function CopyButton({ value, ariaLabel }: Props) {
       ) : (
         <>
           <Copy className="h-3.5 w-3.5" />
-          Copiar
+          {label}
         </>
       )}
     </button>

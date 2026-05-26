@@ -1,5 +1,6 @@
 import { Baby, TrendingUp, Zap } from "lucide-react";
 import Logo from "./Logo";
+import Typewriter from "./Typewriter";
 import UseCaseCard from "./UseCaseCard";
 
 type Props = {
@@ -22,11 +23,17 @@ export default function Header({ onPickExample }: Props) {
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.05]">
             Datos del Banco Mundial,
             <br />
-            <span className="text-emerald-400">verificados al instante</span>.
+            <Typewriter
+              text="verificados al instante."
+              className="text-emerald-400"
+            />
           </h1>
-          <p className="text-base sm:text-lg text-slate-400 max-w-xl leading-relaxed">
-            Sin invento, sin paráfrasis, sin atajos. Cada respuesta cita su
-            indicador y viene firmada criptográficamente.
+          <p className="text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed">
+            Cada respuesta viene directo del Banco Mundial: el número exacto,
+            la fuente oficial, y un sello que prueba que nadie lo tocó. No se
+            agrega contexto, no se infieren datos y te entregamos un sello
+            para que puedas incrustarlo en X, un sitio web, un blog o incluso
+            un libro escrito a mano, como sello de información verificada.
           </p>
         </div>
       </div>

@@ -6,7 +6,9 @@ import Answer from "./components/Answer";
 import ClaimCard from "./components/ClaimCard";
 import Header from "./components/Header";
 import HowItWorks from "./components/HowItWorks";
+import IndicatorExplainer from "./components/IndicatorExplainer";
 import SearchInput from "./components/SearchInput";
+import ThemesSection from "./components/ThemesSection";
 import VerificationProgress from "./components/VerificationProgress";
 import { streamAgentEvents } from "./lib/sse";
 import type { AgentEvent, ClaimCardData } from "./lib/types";
@@ -86,7 +88,13 @@ export default function Home() {
           isStreaming={isStreaming}
         />
 
-        {!hasResults && !isStreaming && <HowItWorks />}
+        {!hasResults && !isStreaming && (
+          <>
+            <IndicatorExplainer />
+            <ThemesSection />
+            <HowItWorks />
+          </>
+        )}
 
         {hasResults && (
           <div className="space-y-5">
