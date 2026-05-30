@@ -15,15 +15,16 @@ the DATA 360 Challenge and what scaling beyond the demo would look like.
 |---|---|---|
 | Frontend | [Vercel](https://vercel.com) Hobby | Free tier covers the demo; first-class Next.js support |
 | Backend | [Railway](https://railway.app) Hobby | Single container, Dockerfile auto-detected, ~$5/mo |
-| LLM | [Cerebras](https://cloud.cerebras.ai) free tier | 1M tokens/day on Llama-class models; fastest inference available |
+| LLM | [OpenAI](https://platform.openai.com) `gpt-5.4` | Best tool-calling reliability for the ReAct loop. Free 250k tokens/day available when input/output data sharing is enabled on the project. |
 | Data | [World Bank Data360](https://data360.worldbank.org) | Official source via the [data360-mcp](https://github.com/worldbank/data360-mcp) server |
-| Observability | [Langfuse Cloud](https://cloud.langfuse.com) free tier | 50k observations/month, more than enough for the demo |
+| Observability | [Datadog LLM Observability](https://www.datadoghq.com/product/llm-observability/) | Auto-instrumented OpenAI + MCP spans, Claim Card metadata annotated on the workflow span, agentless intake (no Datadog Agent on the host) |
 | Repo | [github.com/giulitn/verifacta](https://github.com/giulitn/verifacta) | MIT license, public, reproducible from a fresh clone |
 
 Switching any of these is one configuration change. The LLM provider
 is a `VERIFACTA_MODEL` environment variable; the deploy targets are
-specified by a Dockerfile and a `vercel.json`-equivalent root setting;
-the observability backend is `LANGFUSE_HOST`.
+specified by a Dockerfile and the Vercel project root; the
+observability backend is selected by the `DD_*` env vars (drop them
+and observability silently no-ops).
 
 ## Cost model
 
@@ -34,15 +35,18 @@ journalists doing daily research:
 |---|---|
 | Vercel Hobby | $0 |
 | Railway Hobby (1 service, ~512 MB RAM) | ~$5 |
-| Cerebras free tier (~30 queries/day, ~4k tokens each) | $0 |
-| Langfuse free tier (~3k traces/month) | $0 |
+| OpenAI `gpt-5.4` (~30 queries/day, ~7k input + 500 output tokens each, ~96% cached) | $0 in the data-shared free tier; ~$3–5/mo paid with a `$10` hard limit |
+| Datadog LLM Observability | $0 during the 14-day trial; thereafter free up to small volumes, billed per million spans for higher tiers |
 | Domain (optional) | $0–$15/year |
-| **Recurring total** | **~$5/month** |
+| **Recurring total** | **~$5–10/month** |
 
-If LLM volume grows past the free tier, the migration path is paid
-Cerebras (~$0.30/M input tokens for Llama-class models) or any
-provider supported by `init_chat_model`. The agent code does not
-change.
+Each LLM call hits the OpenAI prompt cache at ~96% (the 2.5k-token
+system prompt + tool definitions are reused across the 3–4 ReAct
+steps per query), so input token cost is dominated by the small
+deltas between steps rather than the full prompt. If LLM volume
+grows, the migration paths are any provider supported by
+`init_chat_model` (Anthropic, Groq, Cerebras free tier with 1M
+tokens/day, Google Gemini); the agent code does not change.
 
 ## Maintenance
 
@@ -61,10 +65,10 @@ deps) and tightly scoped:
   GDPR plans — none of these apply. The smallest sustainable system
   is one without persistent state.
 
-The expected weekly maintenance is monitoring Langfuse for failed
-traces, pulling the upstream data360-mcp when a new version ships,
-and updating `VERIFACTA_MODEL` if a better free-tier provider becomes
-available.
+The expected weekly maintenance is monitoring the Datadog LLM
+Observability dashboard for failed traces or refusal spikes, pulling
+the upstream data360-mcp when a new version ships, and updating
+`VERIFACTA_MODEL` if a better-priced provider becomes available.
 
 ## Upstream contributions
 

@@ -9,6 +9,7 @@ const PAGES = [
   { href: "/security", title: "Security" },
   { href: "/user-guide", title: "User guide" },
   { href: "/sustainability", title: "Sustainability" },
+  { href: "/timeline", title: "Timeline" },
 ];
 
 export default function DocsNav() {

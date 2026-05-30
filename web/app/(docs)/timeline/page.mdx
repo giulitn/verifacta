@@ -1,0 +1,72 @@
+export const metadata = {
+  title: "Development timeline — Verifacta",
+  description: "What Verifacta built for the DATA 360 Challenge vs. what it builds on.",
+};
+
+# Development timeline & technical addendum
+
+This page is the technical addendum required by Section 8 of the
+DATA 360 Challenge rules: a clear separation between *pre-existing*
+components Verifacta consumes and the *challenge-specific* work
+contributed by the team during Phase 2 (April 30 – May 31, 2026).
+
+## Pre-existing vs challenge-specific
+
+The verification stack uses well-known infrastructure as building
+blocks. Everything Verifacta-specific lives on top of those blocks
+and was authored during Phase 2.
+
+| Component | Pre-existing dependency | Challenge-specific contribution |
+|---|---|---|
+| Data layer | [worldbank/data360-mcp](https://github.com/worldbank/data360-mcp) — official MCP server maintained by the World Bank AI for Data team | Open-source contribution upstream: [PR #105](https://github.com/worldbank/data360-mcp/pull/105) adds `data360_get_timeseries_v2`, an Indicators v2 API fallback for legacy WDI series |
+| Agent framework | LangChain + LangGraph (`create_agent`, ReAct loop, MCP adapters) | The agent orchestration code in [`langgraph_agent/agent.py`](https://github.com/giulitn/verifacta/blob/main/langgraph_agent/agent.py): query streaming, citation collection across tool calls, refusal-mode handling |
+| System prompt | None — prompts are not a third-party artifact | The full system prompt in [`langgraph_agent/prompts.py`](https://github.com/giulitn/verifacta/blob/main/langgraph_agent/prompts.py): strict tool-flow rules + the four anti-fabrication guardrails A–D |
+| Claim Card | None — verifiability artifact is bespoke | SHA-256 hash contract over `answer + canonical(indicators) + timestamp`; two HTML variants (verified + rejection); permalink endpoint `GET /c/{sha256}` with persistent storage |
+| LLM provider | OpenAI / Anthropic / Groq / Cerebras SDKs | Provider-agnostic router in [`langgraph_agent/config.py`](https://github.com/giulitn/verifacta/blob/main/langgraph_agent/config.py) + bypass for Cerebras (not in `init_chat_model`'s built-in registry) |
+| API layer | FastAPI + slowapi + uvicorn | [`langgraph_agent/api.py`](https://github.com/giulitn/verifacta/blob/main/langgraph_agent/api.py): `/ask` SSE stream, `/c/{sha256}` permalink resolver, per-IP rate limit with friendly 429, ExceptionGroup-unwrapping for the SSE error channel |
+| Observability | ddtrace (Datadog LLM Observability SDK) | [`langgraph_agent/observability.py`](https://github.com/giulitn/verifacta/blob/main/langgraph_agent/observability.py): agentless-mode wiring, workflow-span wrapping with Claim Card metadata annotations, custom trace processor that renames generic `OpenAI.createChatCompletion` spans with the tool the model decided to call |
+| Frontend | Next.js 15 (App Router), Tailwind, Mermaid | [`web/`](https://github.com/giulitn/verifacta/tree/main/web): the journalist-oriented chat UI, the Claim Card embed, the docs site (these MDX pages), the SSE consumer, the permalink share flow |
+| Deployment | Vercel + Railway + Docker | The Dockerfile that bundles the MCP server as a stdio subprocess in the same container as the agent (`fastmcp==2.14.1` pin, `DATA360_API_BASE_URL` + `MCP_ENV=local` wiring), the Railway service config, the Vercel project setup |
+
+## How "AI readiness" shows up in the prototype
+
+Section 8 of the rules asks specifically about *"LLM interpretability
+and the discoverability of trustworthy data in an AI-driven
+landscape."* The Verifacta-specific work below is how we address it:
+
+- **Interpretability.** Every agent run is a Datadog LLM Observability
+  trace where each step is renamed to reflect the model's decision
+  (`Decide: call data360_search_indicators`, `Synthesize final
+  answer`). A reviewer can read the trace like a narrative without
+  decoding generic `createChatCompletion` labels.
+- **Citation-bound output.** The agent has no general-knowledge
+  channel — the system prompt makes refusal the default whenever the
+  Data360 catalogue cannot ground an answer, and the Claim Card
+  records the exact `(database, indicator)` pairs consulted.
+- **Cryptographic provenance.** The SHA-256 hash over the canonical
+  citation list lets any reader recompute the integrity signature
+  from the artifact itself, without trusting Verifacta's server.
+- **Discoverability.** The permalink endpoint turns every emitted
+  Claim Card into a shareable URL with structured JSON access, so
+  downstream verification tools can ingest the artifact directly.
+
+## Phase 2 timeline
+
+| Date | Milestone |
+|---|---|
+| 2026-04-30 | Phase 2 starts. Initial agent build with the four anti-fabrication guardrails A–D and the SHA-256 Claim Card formula. |
+| 2026-05-24 | Nine-query benchmark run end-to-end. Multi-indicator citation collection and rejection-card variant validated. |
+| 2026-05-25 | Architecture pivot: delete the local `mcp_server/` reimplementation and consume the official `worldbank/data360-mcp` directly over `streamable_http`. |
+| 2026-05-26 | [PR #105](https://github.com/worldbank/data360-mcp/pull/105) opened upstream: `data360_get_timeseries_v2` Indicators v2 fallback. |
+| 2026-05-27 | FastAPI `/ask` endpoint shipped with SSE streaming + per-IP rate limit. |
+| 2026-05-28 | Next.js frontend, dark-theme redesign, journalist-oriented chat UI, shareable Claim Card permalinks. |
+| 2026-05-29 | Five jury-facing MDX documentation pages (architecture, methodology, security, user guide, sustainability). |
+| 2026-05-30 | Datadog LLM Observability integration. Custom span renamer so traces read as the agent's reasoning narrative. |
+| 2026-05-31 | Phase 2 submission deadline. |
+
+## License
+
+This addendum is released under Creative Commons Attribution 4.0
+([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) per the
+DATA 360 Challenge requirements. The accompanying source code is
+under the MIT License.

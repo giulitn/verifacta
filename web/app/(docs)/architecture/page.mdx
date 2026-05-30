@@ -32,9 +32,9 @@ record. Each component below exists to enforce that constraint.
 
     subgraph External["External Services"]
       direction TB
-      Cerebras["Cerebras Cloud<br/>gpt-oss-120b"]
+      LLM["LLM provider<br/>(OpenAI gpt-5.4)"]
       Data360["Data360 API<br/>worldbank.org"]
-      Langfuse["Langfuse Cloud<br/>traces & evals"]
+      Datadog["Datadog Cloud<br/>LLM Observability"]
     end
 
     User -- HTTPS --> Auth
@@ -42,10 +42,10 @@ record. Each component below exists to enforce that constraint.
     UI -- HTTPS · SSE --> Rate
     Rate --> API
     API --> Agent
-    Agent -- chat completions --> Cerebras
+    Agent -- chat completions --> LLM
     Agent -- tool calls --> MCP
     MCP -- HTTPS --> Data360
-    Agent -. async traces .-> Langfuse
+    Agent -. async traces .-> Datadog
 
     classDef vercel fill:#0a0a0a,color:#fff,stroke:#0a0a0a,stroke-width:2px
     classDef railway fill:#7c3aed,color:#fff,stroke:#5b21b6,stroke-width:2px
@@ -80,7 +80,11 @@ answer:
    Claim Card as the last SSE event.
 
 In parallel, every LLM call and every tool invocation lands as a
-node in a Langfuse trace, so a reviewer can audit the reasoning offline.
+span in a Datadog LLM Observability trace, so a reviewer can audit
+the reasoning offline. Each `OpenAI.createChatCompletion` span is
+renamed at export time with the tool the model decided to call
+(`Decide: call data360_search_indicators`, …), so the trace reads
+like a narrative of the agent's reasoning.
 
 ## Why this shape
 
@@ -97,7 +101,7 @@ a sidecar store.
 **LLM-agnostic.** The model is configured via `VERIFACTA_MODEL` in the
 shape `<provider>:<model_id>`. The agent layer is provider-neutral
 through `langchain.chat_models.init_chat_model`; switching from
-Cerebras to Anthropic or Groq is one environment variable.
+OpenAI to Anthropic, Groq, or Cerebras is one environment variable.
 
 **Frontend at the edge.** Vercel's CDN serves the Next.js shell and
 runs HTTP Basic Auth in middleware. No backend cycles are burned on
@@ -115,3 +119,10 @@ Verifacta deliberately does not include:
 - A re-implementation of any Data360 tool. The MCP server is canonical
   and maintained upstream — we contribute fixes there ([PR #105](https://github.com/worldbank/data360-mcp/pull/105))
   rather than fork.
+
+## License
+
+This architecture documentation is released under Creative Commons
+Attribution 4.0 ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/))
+per the DATA 360 Challenge requirements. The accompanying source code
+is under the MIT License.
