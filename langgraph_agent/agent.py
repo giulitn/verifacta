@@ -21,6 +21,10 @@ import sys
 from datetime import datetime, timezone
 from typing import AsyncIterator, TypedDict
 
+# observability must be imported BEFORE langchain so ddtrace's LLM Obs
+# can patch LangChain/LangGraph at the right moment.
+import observability  # noqa: F401  (side-effect: ddtrace.llmobs.enable on import)
+
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
@@ -29,7 +33,6 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 import claim_card
 import config
 import logging_setup
-import observability
 import prompts
 
 logger = logging.getLogger("verifacta")
@@ -199,11 +202,11 @@ async def run_agent_stream(user_query: str) -> AsyncIterator[AgentEvent]:
 
     logger.info("Query: %s", user_query)
 
-    # Pack everything Langfuse needs into the RunnableConfig: the
-    # callback handler picks up trace name + initial metadata + tags
-    # from here. Final-state metadata (sha256, indicators_cited) is
-    # added below via observability.update_current_trace.
-    handler = observability.get_callback_handler()
+    # RunnableConfig metadata/tags propagate into the auto-instrumented
+    # LangChain spans, so Datadog LLM Obs picks them up without us having
+    # to attach a callback handler. Final-state metadata (sha256,
+    # indicators_cited) is annotated below on the workflow span.
+    provider = _provider_tag(config.MODEL_NAME)
     run_config: dict = {
         "run_name": _short_trace_name(user_query),
         "metadata": {
@@ -211,56 +214,64 @@ async def run_agent_stream(user_query: str) -> AsyncIterator[AgentEvent]:
             "verifacta_model": config.MODEL_NAME,
             "verifacta_transport": config.MCP_TRANSPORT,
         },
-        "tags": ["verifacta", _provider_tag(config.MODEL_NAME)],
+        "tags": ["verifacta", provider],
     }
-    if handler is not None:
-        run_config["callbacks"] = [handler]
 
-    messages: list = []
-    emitted_count = 0
-    async for state in agent.astream(
-        {"messages": [HumanMessage(content=user_query)]},
-        config=run_config,
-        stream_mode="values",
-    ):
-        messages = state.get("messages", [])
-        for new_msg in messages[emitted_count:]:
-            for event in _events_from_new_message(new_msg):
-                yield event
-        emitted_count = len(messages)
+    with observability.workflow(_short_trace_name(user_query)):
+        observability.annotate(
+            input_data=user_query,
+            tags={"app": "verifacta", "provider": provider},
+            metadata={
+                "model": config.MODEL_NAME,
+                "transport": config.MCP_TRANSPORT,
+            },
+        )
 
-    if not messages:
-        observability.update_current_trace(
-            tags=["verifacta", _provider_tag(config.MODEL_NAME), "no_messages"],
+        messages: list = []
+        emitted_count = 0
+        async for state in agent.astream(
+            {"messages": [HumanMessage(content=user_query)]},
+            config=run_config,
+            stream_mode="values",
+        ):
+            messages = state.get("messages", [])
+            for new_msg in messages[emitted_count:]:
+                for event in _events_from_new_message(new_msg):
+                    yield event
+            emitted_count = len(messages)
+
+        if not messages:
+            observability.annotate(
+                tags={"app": "verifacta", "provider": provider, "status": "no_messages"},
+            )
+            observability.flush()
+            yield {
+                "type": "error",
+                "data": {"message": "Agent produced no messages"},
+            }
+            return
+
+        answer = _coerce_answer(messages[-1].content)
+        indicators = _collect_indicators(messages)
+        timestamp = datetime.now(timezone.utc).isoformat()
+        sha256 = claim_card.compute_hash(answer, indicators, timestamp)
+
+        refused = not indicators
+        observability.annotate(
+            metadata={
+                "claim_card_sha256": sha256,
+                "indicators_cited_count": len(indicators),
+                "indicators_cited": indicators,
+                "claim_card_timestamp": timestamp,
+            },
+            tags={
+                "app": "verifacta",
+                "provider": provider,
+                "status": "refused" if refused else "verified",
+            },
+            output_data={"answer": answer, "indicators": indicators, "sha256": sha256},
         )
         observability.flush()
-        yield {
-            "type": "error",
-            "data": {"message": "Agent produced no messages"},
-        }
-        return
-
-    answer = _coerce_answer(messages[-1].content)
-    indicators = _collect_indicators(messages)
-    timestamp = datetime.now(timezone.utc).isoformat()
-    sha256 = claim_card.compute_hash(answer, indicators, timestamp)
-
-    refused = not indicators
-    observability.update_current_trace(
-        metadata={
-            "claim_card_sha256": sha256,
-            "indicators_cited_count": len(indicators),
-            "indicators_cited": indicators,
-            "claim_card_timestamp": timestamp,
-        },
-        tags=[
-            "verifacta",
-            _provider_tag(config.MODEL_NAME),
-            "refused" if refused else "verified",
-        ],
-        output={"answer": answer, "indicators": indicators, "sha256": sha256},
-    )
-    observability.flush()
 
     yield {"type": "final_answer", "data": {"text": answer}}
     yield {

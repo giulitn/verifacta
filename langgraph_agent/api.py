@@ -28,10 +28,20 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+# Configure logging before importing agent (which itself imports
+# observability + langchain). This way every line from the agent's
+# startup — MCP handshake, ddtrace init, provider config — lands in
+# verifacta.log alongside the API's own logs.
+import config
+import logging_setup
+
+logging_setup.setup_logging(config.LOG_FILE)
+
 import agent
 import claim_store
 
 logger = logging.getLogger("verifacta.api")
+logger.info("Log file: %s", config.LOG_FILE)
 
 app = FastAPI(title="Verifacta API", version="0.3.0")
 
