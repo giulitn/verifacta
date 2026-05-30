@@ -1,13 +1,7 @@
 """Persistent storage for emitted Claim Cards.
 
-Each Claim Card is written to `{CLAIMS_DIR}/{sha256}.json` so the API can
-serve it back via `GET /c/{sha256}`. That permalink is what a journalist
-shares on social media — the SHA-256 by itself is unverifiable for a lay
-reader, but a URL that resolves to the original card (with a direct link
-to Data360) is.
-
-The hash is content-addressable: writing the same card twice is a no-op,
-which makes the call idempotent and safe under racing requests.
+Each card is written to `{CLAIMS_DIR}/{sha256}.json` so the API can serve
+it back via `GET /c/{sha256}` — the permalink a journalist actually shares.
 """
 
 import json

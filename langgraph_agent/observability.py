@@ -1,10 +1,7 @@
 """Datadog LLM Observability hook for the agent.
 
-`ddtrace.llmobs` auto-instruments LangChain/LangGraph, so every chat
-model call, tool invocation, and intermediate step lands as a span in
-Datadog's LLM Observability product. We add one workflow span per agent
-run and annotate it at the end with the Claim Card metadata (SHA-256,
-indicators cited) — fields we only know after the agent finishes.
+Wraps each agent run in an `LLMObs.workflow` span and annotates it with
+the Claim Card metadata (SHA-256, indicators cited) at the end.
 
 Configuration via environment variables:
 
@@ -14,11 +11,6 @@ Configuration via environment variables:
     DD_LLMOBS_AGENTLESS_ENABLED      "true" when no Datadog Agent runs on the
                                      host (Railway, Vercel, local Mac). Required
                                      for our deploy topology.
-
-When DD_API_KEY is unset, every function in this module no-ops cleanly,
-so unconfigured environments behave exactly as if observability didn't
-exist. Init runs once on first use; failures are swallowed so a bad key
-never crashes the agent.
 """
 
 import os
@@ -140,12 +132,7 @@ def _register_span_renamer() -> None:
 
 @contextmanager
 def workflow(name: str) -> Iterator[None]:
-    """Wrap an agent run as one LLM Obs workflow span.
-
-    Any LangChain/LangGraph spans created inside become children of this
-    one, so the Datadog UI groups the whole run under a single entry.
-    No-op when observability is disabled.
-    """
+    """Wrap an agent run as one LLM Obs workflow span. No-op when disabled."""
     _try_init()
     if not _enabled:
         yield

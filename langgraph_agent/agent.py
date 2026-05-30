@@ -41,7 +41,6 @@ logger = logging.getLogger("verifacta")
 class AgentEvent(TypedDict):
     """One event emitted during an agent run.
 
-    Discriminated by `type`:
       - "tool_call_start" : {"name", "args", "id"}
       - "tool_call_end"   : {"id"}
       - "final_answer"    : {"text"}
@@ -112,12 +111,7 @@ def _build_mcp_client() -> MultiServerMCPClient:
 
 
 def _collect_indicators(messages: list) -> list[dict]:
-    """Walk the agent transcript and return all distinct data sources cited.
-
-    Returns a list of `{"database": str, "indicator": str}` sorted for stable
-    hashing. Each entry corresponds to a unique (database, indicator) pair
-    consulted across data-fetching tool calls.
-    """
+    """Walk the agent transcript and return distinct cited sources, sorted."""
     seen: set[tuple[str, str]] = set()
     citations: list[dict] = []
     for msg in messages:
@@ -156,14 +150,7 @@ def _coerce_answer(content) -> str:
 
 
 def _events_from_new_message(msg) -> list[AgentEvent]:
-    """Translate one freshly-appended LangGraph message into UI events.
-
-    AIMessages with tool_calls produce one `tool_call_start` per tool call.
-    ToolMessages produce one `tool_call_end`. Plain AIMessages with the
-    final answer produce nothing here — `run_agent_stream` emits the
-    `final_answer` and `claim_card` events after the stream ends, so it
-    can compute the integrity hash over the complete transcript.
-    """
+    """Translate one freshly-appended LangGraph message into UI events."""
     events: list[AgentEvent] = []
     for tool_call in getattr(msg, "tool_calls", []) or []:
         events.append(
@@ -286,7 +273,7 @@ async def run_agent_stream(user_query: str) -> AsyncIterator[AgentEvent]:
 
 
 def _short_trace_name(query: str, limit: int = 80) -> str:
-    """First line, truncated — used as the human-readable Langfuse trace name."""
+    """First line of the query, truncated — used as the trace's display name."""
     first_line = query.strip().splitlines()[0] if query.strip() else "(empty query)"
     if len(first_line) <= limit:
         return first_line
@@ -299,12 +286,7 @@ def _provider_tag(model_name: str) -> str:
 
 
 async def run_cli(user_query: str) -> None:
-    """CLI entry point — consume the stream, log it, write Claim Card HTML.
-
-    Preserves the legacy behavior of the previous `run()` function: a
-    single HTML file is written to `config.CLAIM_CARD_OUTPUT` and a human
-    summary is logged.
-    """
+    """CLI entry point — consume the stream, log it, write Claim Card HTML."""
     card: dict | None = None
     async for event in run_agent_stream(user_query):
         kind = event["type"]
